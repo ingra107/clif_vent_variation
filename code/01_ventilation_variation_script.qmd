@@ -27,17 +27,22 @@ renv::activate()
 ```
 
 
-<!-- ```{r} -->
-<!-- # Initialize renv for the project: -->
-<!-- renv::init(settings = list(use.cache = FALSE)) -->
+```{r}
+# Initialize renv for the project:
+renv::init(bare = TRUE)
 
-<!-- # Install required packages: -->
-<!-- renv::install("BiocManager") -->
-<!-- BiocManager::install("IRanges") -->
-<!-- renv::install(c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "pandoc", "janitor", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survival", "survminer", "KMsurv"), dependencies = TRUE) -->
-<!-- # Save the project's package state: -->
-<!-- renv::snapshot() -->
-<!-- ``` -->
+# Install required packages:
+renv::install("BiocManager")
+BiocManager::install("IRanges")
+
+# renv::update()
+renv::install(c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "pandoc", "janitor", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survival", "survminer"))
+
+#, dependencies = TRUE
+ # "KMsurv"
+# Save the project's package state:
+renv::snapshot()
+```
 
 ### Libraries
 
@@ -49,7 +54,7 @@ renv::activate()
 # renv::install("BiocManager")
 # BiocManager::install("IRanges")
 
-packages <- c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "pandoc", "janitor", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survival", "survminer", "KMsurv")
+packages <- c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "janitor", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survival", "survminer", "KMsurv")
 
 install_if_missing <- function(package) {
   if (!require(package, character.only = TRUE)) {
@@ -58,7 +63,12 @@ install_if_missing <- function(package) {
   }
 }
 
-sapply(packages, install_if_missing)
+load_function <- function(package) {
+    library(package, character.only = TRUE)
+}
+
+sapply(packages, load_function)
+
 ```
 
 
