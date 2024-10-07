@@ -29,19 +29,21 @@ renv::activate()
 
 ```{r}
 # Initialize renv for the project:
-renv::init(bare = TRUE)
+renv::init(bare = TRUE, settings = list(use.cache = FALSE))
 
 # Install required packages:
 renv::install("BiocManager")
 BiocManager::install("IRanges")
 
 # renv::update()
-renv::install(c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "pandoc", "janitor", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survival", "survminer"))
+renv::install(c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "pandoc", "janitor", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survminer"))
 
 #, dependencies = TRUE
  # "KMsurv"
 # Save the project's package state:
 renv::snapshot()
+
+
 ```
 
 ### Libraries
@@ -54,14 +56,14 @@ renv::snapshot()
 # renv::install("BiocManager")
 # BiocManager::install("IRanges")
 
-packages <- c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "janitor", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survival", "survminer", "KMsurv")
-
-install_if_missing <- function(package) {
-  if (!require(package, character.only = TRUE)) {
-    renv::install(package, dependencies = TRUE)
-    library(package, character.only = TRUE)
-  }
-}
+packages <- c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "janitor", "pandoc", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survival", "survminer")
+# 
+# install_if_missing <- function(package) {
+#   if (!require(package, character.only = TRUE)) {
+#     renv::install(package, dependencies = TRUE)
+#     library(package, character.only = TRUE)
+#   }
+# }
 
 load_function <- function(package) {
     library(package, character.only = TRUE)
