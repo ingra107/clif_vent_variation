@@ -23,16 +23,21 @@ if (!require("renv", quietly = TRUE)) {
   install.packages("renv")
 }
 
-# Initialize renv for the project:
-renv::init(settings = list(use.cache = FALSE))
-
-# Install required packages:
-renv::install("BiocManager")
-BiocManager::install("IRanges")
-renv::install(c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "pandoc", "janitor", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survival", "survminer", "KMsurv"), dependencies = TRUE)
-# Save the project's package state:
-renv::snapshot()
+renv::activate()
 ```
+
+
+<!-- ```{r} -->
+<!-- # Initialize renv for the project: -->
+<!-- renv::init(settings = list(use.cache = FALSE)) -->
+
+<!-- # Install required packages: -->
+<!-- renv::install("BiocManager") -->
+<!-- BiocManager::install("IRanges") -->
+<!-- renv::install(c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "pandoc", "janitor", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survival", "survminer", "KMsurv"), dependencies = TRUE) -->
+<!-- # Save the project's package state: -->
+<!-- renv::snapshot() -->
+<!-- ``` -->
 
 ### Libraries
 
@@ -40,7 +45,6 @@ renv::snapshot()
 #| label: installing packages
 #| timeit: true
 
-# # renv::activate()
 # renv::restore()
 # renv::install("BiocManager")
 # BiocManager::install("IRanges")
@@ -57,10 +61,6 @@ install_if_missing <- function(package) {
 sapply(packages, install_if_missing)
 ```
 
-```{r}
-
-
-```
 
 ### Utils
 
