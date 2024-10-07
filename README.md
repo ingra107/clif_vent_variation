@@ -80,7 +80,9 @@ if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")
 # Initialize renv for the project:
 renv::init()
 # Install required packages:
-renv::install(c("tidyverse","ggthemes","styler","readxl","writexl","DBI","dbplyr","knitr","pandoc","janitor", "data.table", "duckdb","powerjoin","collapse","tidyfast","datapasta","fst","dtplyr","bit64","zoo","fuzzyjoin","arrow","hrbrthemes","here","table1", "rvest", "tidymodels", "pscl", "survival", "survminer", "KMsurv"))
+renv::install("BiocManager")
+BiocManager::install("IRanges")
+renv::install(c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "pandoc", "janitor", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survival", "survminer", "KMsurv"), dependencies = TRUE)
 # Save the project's package state:
 renv::snapshot()
 ```

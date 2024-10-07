@@ -24,7 +24,10 @@ editor_options:
 #| label: installing packages
 #| timeit: true
 
-packages <- c("tidyverse","ggthemes","styler","readxl","writexl","DBI","dbplyr","knitr","pandoc","janitor", "data.table", "duckdb","powerjoin","collapse","tidyfast","datapasta","fst","dtplyr","bit64","zoo","fuzzyjoin","arrow","hrbrthemes","here","table1", "rvest", "tidymodels", "pscl", "survival", "survminer", "KMsurv")
+renv::install("BiocManager")
+BiocManager::install("IRanges")
+
+packages <- c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "pandoc", "janitor", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survival", "survminer", "KMsurv")
 
 install_if_missing <- function(package) {
   if (!require(package, character.only = TRUE)) {
@@ -34,9 +37,12 @@ install_if_missing <- function(package) {
 }
 
 sapply(packages, install_if_missing)
-
 ```
 
+```{r}
+
+
+```
 
 ### Utils
 
