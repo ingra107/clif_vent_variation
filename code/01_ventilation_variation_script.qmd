@@ -1,0 +1,39 @@
+---
+title: "01_ventilation_variation_script"
+author: Nick Ingraham
+date: today
+execute: 
+  echo: false
+format: 
+  html:
+    embed-resources: true
+    number-sections: true
+    toc: true
+    html-q-tags: true
+    code-fold: true
+editor: source
+editor_options: 
+  chunk_output_type: console
+---
+
+## CLIF Setup
+
+### Libraries
+
+```{r}
+#| label: installing packages
+#| timeit: true
+
+packages <- c("tidyverse","ggthemes","styler","readxl","writexl","DBI","dbplyr","knitr","pandoc","janitor", "data.table", "duckdb","powerjoin","collapse","tidyfast","datapasta","fst","dtplyr","bit64","zoo","fuzzyjoin","arrow","hrbrthemes","here","table1", "rvest", "tidymodels", "pscl", "survival", "survminer", "KMsurv")
+
+install_if_missing <- function(package) {
+  if (!require(package, character.only = TRUE)) {
+    install.packages(package, dependencies = TRUE)
+    library(package, character.only = TRUE)
+  }
+}
+
+sapply(packages, install_if_missing)
+
+```
+
