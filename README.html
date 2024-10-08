@@ -410,28 +410,54 @@ provide a brief rationale for why they are required.</p>
 </div>
 <div id="cohort-identification" class="section level2">
 <h2>Cohort identification</h2>
-<p>Describe study cohort inclusion and exclusion criteria here</p>
+<div id="inclusion" class="section level3">
+<h3>Inclusion</h3>
+<ol style="list-style-type: decimal">
+<li>Adults (age &gt;= 18 years old)</li>
+<li>Mechnical Ventilation within 72 hours of admission</li>
+<li>Admission from 2020-2021</li>
+<li>Volume control with a set tidal volume within 24 hours of mechanical
+ventilation</li>
+</ol>
+</div>
+<div id="exclusion" class="section level3">
+<h3>Exclusion</h3>
+<ol style="list-style-type: decimal">
+<li>Patient that died within 24 hours of mechanical ventilation</li>
+</ol>
+</div>
 </div>
 <div id="expected-results" class="section level2">
 <h2>Expected Results</h2>
-<p>Describe the output of the analysis. The final project results should
-be saved in the <a href="output/README.md"><code>output/final</code></a>
-directory.</p>
+<p><code>Table 1</code> - descriptive data by hospital
+<code>aggregaged data 1</code> - male vs. female LTVV
+<code>aggregated data 2</code> - odds ratios for regression of
+ventilator days</p>
+<p>project results will be saved in the <a href="output/README.md"><code>output/final</code></a> directory.</p>
 </div>
 <div id="detailed-instructions-for-running-the-project" class="section level2">
 <h2>Detailed Instructions for running the project</h2>
 </div>
-<div id="setup-project-environment" class="section level2">
-<h2>1. Setup Project Environment</h2>
-<p>Describe the steps to setup the project environment.</p>
-<p>Example for R:</p>
-<pre><code># Setup R environment using renv
-# Install renv if not already installed:
-if (!requireNamespace(&quot;renv&quot;, quietly = TRUE)) install.packages(&quot;renv&quot;)
+<div id="setup-project-environment-script-developer-only" class="section level2">
+<h2>1. Setup Project Environment <strong>(Script Developer
+Only)</strong></h2>
+<p><em>This has been completed by Nick when making this script
+already</em> (<strong>SKIP</strong>)<br />
+Describe the steps to setup the project environment.</p>
+<pre><code># Install renv if not already installed:
+if (!require(&quot;renv&quot;, quietly = TRUE)) {
+  install.packages(&quot;renv&quot;)
+}
 # Initialize renv for the project:
-renv::init()
+renv::init(bare = TRUE, settings = list(use.cache = FALSE))
+
 # Install required packages:
-renv::install(c(&quot;knitr&quot;, &quot;here&quot;, &quot;tidyverse&quot;, &quot;arrow&quot;, &quot;gtsummary&quot;))
+renv::install(&quot;BiocManager&quot;)
+BiocManager::install(&quot;IRanges&quot;)
+
+# renv::update()
+renv::install(c(&quot;tidyverse&quot;, &quot;ggthemes&quot;, &quot;systemfonts&quot;,  &quot;styler&quot;, &quot;readxl&quot;, &quot;writexl&quot;, &quot;DBI&quot;, &quot;dbplyr&quot;, &quot;knitr&quot;, &quot;pandoc&quot;, &quot;janitor&quot;, &quot;data.table&quot;, &quot;duckdb&quot; ,&quot;powerjoin&quot;, &quot;collapse&quot;, &quot;tidyfast&quot;, &quot;datapasta&quot;, &quot;fst&quot;, &quot;dtplyr&quot;, &quot;bit64&quot;, &quot;zoo&quot;, &quot;fuzzyjoin&quot;, &quot;arrow&quot;, &quot;hrbrthemes&quot;, &quot;here&quot;, &quot;table1&quot;, &quot;rvest&quot;, &quot;tidymodels&quot;, &quot;pscl&quot;, &quot;survminer&quot;))
+
 # Save the project&#39;s package state:
 renv::snapshot()</code></pre>
 <p>Example for Python:</p>
@@ -453,8 +479,8 @@ configuration steps.</p>
 <ul>
 <li><p><a href="https://github.com/08wparker/CLIF_adult_sepsis_events">CLIF Adult
 Sepsis Events</a> for R</p></li>
-<li><h2 id="clif-eligibility-for-mobilization-for-python"><a href="https://github.com/kaveriC/mobilization">CLIF Eligibility for
-mobilization</a> for Python</h2></li>
+<li><p><a href="https://github.com/kaveriC/mobilization">CLIF
+Eligibility for mobilization</a> for Python</p></li>
 </ul>
 </div>
 </div>

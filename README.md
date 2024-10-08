@@ -67,23 +67,26 @@ project results will be saved in the [`output/final`](output/README.md) director
 
 ## Detailed Instructions for running the project
 
-## 1. Setup Project Environment
-
+## 1. Setup Project Environment **(Script Developer Only)**
+*This has been completed by Nick when making this script already* (**SKIP**)  
 Describe the steps to setup the project environment.
 
-Example for R:
 
 ```         
 # Install renv if not already installed:
 if (!require("renv", quietly = TRUE)) {
   install.packages("renv")
-  }
+}
 # Initialize renv for the project:
-renv::init()
+renv::init(bare = TRUE, settings = list(use.cache = FALSE))
+
 # Install required packages:
 renv::install("BiocManager")
 BiocManager::install("IRanges")
-renv::install(c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "pandoc", "janitor", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survival", "survminer", "KMsurv"), dependencies = TRUE)
+
+# renv::update()
+renv::install(c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "pandoc", "janitor", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survminer"))
+
 # Save the project's package state:
 renv::snapshot()
 ```

@@ -19,29 +19,30 @@ editor_options:
 ## CLIF Setup
 ```{r}
 # Install renv if not already installed:
-if (!require("renv", quietly = TRUE)) {
-  install.packages("renv")
-}
+# if (!requireNamespace("renv", quietly = TRUE)) {
+#   install.packages("renv")
+# }
 
-renv::activate()
+# renv::activate()
+# renv::restore()
 ```
 
 
 ```{r}
-# Initialize renv for the project:
-renv::init(bare = TRUE, settings = list(use.cache = FALSE))
-
-# Install required packages:
-renv::install("BiocManager")
-BiocManager::install("IRanges")
-
-# renv::update()
-renv::install(c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "pandoc", "janitor", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survminer"))
-
-#, dependencies = TRUE
- # "KMsurv"
-# Save the project's package state:
-renv::snapshot()
+# # Initialize renv for the project:
+# renv::init(bare = TRUE, settings = list(use.cache = FALSE))
+# 
+# # Install required packages:
+# renv::install("BiocManager")
+# BiocManager::install("IRanges")
+# 
+# # renv::update()
+# renv::install(c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "pandoc", "janitor", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survminer"))
+# 
+# #, dependencies = TRUE
+#  # "KMsurv"
+# # Save the project's package state:
+# renv::snapshot()
 
 
 ```
@@ -52,9 +53,6 @@ renv::snapshot()
 #| label: installing packages
 #| timeit: true
 
-# renv::restore()
-# renv::install("BiocManager")
-# BiocManager::install("IRanges")
 
 packages <- c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "janitor", "pandoc", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survival", "survminer")
 # 
@@ -80,6 +78,96 @@ sapply(packages, load_function)
 # Load the configuration utility
 source("utils/config.R")
 
+# Access configuration parameters
+site_name <- config$site_name
+tables_path <- config$tables_path
+file_type <- config$file_type
+
+
+# Print the configuration parameters
+print(paste("Site Name:", site_name))
+print(paste("Tables Path:", tables_path))
+print(paste("File Type:", file_type))
+
+
+
+# List of all table names from the CLIF 2.0 ERD
+tables <- c(
+  "patient",
+  "hospitalization",
+  "vitals",
+  "labs",
+  "medication_admin_continuous",
+  "adt",
+  "patient_assessments",
+  "respiratory_support",
+  "position",
+  "dialysis",
+  "intake_output",
+  "ecmo_mcs",
+  "procedures",
+  "admission_diagnosis",
+  "provider",
+  "sensitivity",
+  "medication_orders",
+  "medication_admin_intermittent",
+  "therapy_details",
+  "microbiology_culture",
+  "sensitivity",
+  "microbiology_nonculture"
+  )
+
+# Tables that should be set to TRUE for this project
+true_tables <- c(
+  "hospitalization",
+  "vitals",
+  "labs",
+  "medication_admin_continuous",
+  "adt",
+  # "patient_assessments",
+  "respiratory_support",
+  "position",
+  # "dialysis",
+  # "intake_output",
+  # "ecmo_mcs",
+  "procedures",
+  # "admission_diagnosis",
+  # "provider",
+  # "sensitivity",
+  # "medication_orders",
+  # "medication_admin_intermittent",
+  # "therapy_details",
+  # "microbiology_culture",
+  # "sensitivity",
+  # "microbiology_nonculture",
+  "patient"
+  )
+
+# Create a named vector and set the boolean values
+table_flags <- setNames(tables %in% true_tables, tables)
+
+
+# List all CLIF files in the directory
+clif_table_filenames <- list.files(path = tables_path, 
+                                   pattern = paste0("^clif_.*\\.", file_type, "$"), 
+                                   full.names = TRUE)
+
+# Extract the base names of the files (without extension)
+clif_table_basenames <- basename(clif_table_filenames) %>%
+  str_remove(paste0("\\.", file_type, "$"))
+
+# Create a lookup table for required files based on table_flags
+required_files <- paste0("clif_", names(table_flags)[table_flags])
+
+# Check if all required files are present
+missing_tables <- setdiff(required_files, clif_table_basenames)
+if (length(missing_tables) > 0) {
+    stop(paste("Missing required tables:", 
+               paste(missing_tables, collapse = ", ")))
+}
+
+# Filter only the filenames that are required
+required_filenames <- clif_table_filenames[clif_table_basenames %in% required_files] 
 
 
 ```
@@ -194,6 +282,12 @@ read_data <- function(file_path) {
 # ID cohort
 #~~~~~~~~~~
 
+
+## Date range
+start_date <- "2020-01-01"
+end_date <- "2021-12-31"
+
+
 # Main Respiratory Support Table
 #~~ using readr or fst or arrow (parquet) package depending on the file type. (THESE WERE SET DURING SET UP ^^ )
 clif_respiratory_support_start <- read_data("clif_respiratory_support") |> select(hospitalization_id, device_category, tracheostomy) 
@@ -203,18 +297,20 @@ clif_hospitalization_start <- read_data("clif_hospitalization") |> select(hospit
 # getting a keep_list of hospitalization_ids that have vent or trach during their encounter... we will use this right_join the dfs below
 df_cohort_keep <- clif_respiratory_support_start |> 
   
-  # Just getting those ventilated or trach
+# Just getting those ventilated or trach
   filter(str_to_lower(device_category) == "imv" | tracheostomy == 1) |> 
   
-  # getting age at admission
+# getting age at admission
   left_join(clif_hospitalization_start) |> 
   
-  # Exclusion based on date
+# Exclusion based on date
   left_join(clif_hospitalization_start) |>
   filter(
-    lubridate::year(admission_dttm) >= 2020 | hospitalization_id == 1767475 | hospitalization_id == 2044432,
-    lubridate::year(admission_dttm) <= 2021,
+    lubridate::date(admission_dttm) >= start_date | hospitalization_id == 1767475 | hospitalization_id == 2044432,
+    lubridate::date(admission_dttm) <= end_date,
+# age exclusion
     age_at_admission >= 18,
+# missing data exclusion
     !is.na(age_at_admission)
     ) |>  
   select(hospitalization_id, patient_id) |> 
@@ -322,6 +418,7 @@ import_df <- function(x) {
 
 
 ```
+
 
 
 
