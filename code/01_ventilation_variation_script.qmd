@@ -280,16 +280,19 @@ read_data <- function(file_path) {
   print(file_path_temp)
   
   if (grepl("\\.csv$", file_path_temp)) {
-    return(read.csv(file_path_temp) 
+    return(read.csv(file_path_temp) |> 
+             mutate(across(ends_with("_id"), as.character))
     )
     
   } else if (grepl("\\.parquet$", file_path_temp)) {
     return(arrow::open_dataset(file_path_temp)  |> 
+             mutate(across(ends_with("_id"), as.character)) |> 
              collect()
     )
     
   } else if (grepl("\\.fst$", file_path_temp)) {
-    return(fst::read.fst(file_path_temp) 
+    return(fst::read.fst(file_path_temp) |> 
+             mutate(across(ends_with("_id"), as.character))
     )
   } else {
     stop("Unsupported file format")
@@ -542,6 +545,8 @@ import_df <- function(x) {
     
     df <- read_function(file_path) |>
       
+      mutate(across(ends_with("_id"), as.character)) |> 
+      
       # helps with glitch in open_dataset
       mutate(across(where(is.character), as.character)) |>
       
@@ -565,6 +570,7 @@ import_df <- function(x) {
     read_function <- get(paste0("read_", file_type)) 
     
     df <- read_function(file_path) |>
+      mutate(across(ends_with("_id"), as.character)) |> 
       
       # right join early so files are smaller
       right_join(df_cohort_keep) |> 
