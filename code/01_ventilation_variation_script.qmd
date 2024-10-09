@@ -36,11 +36,8 @@ editor_options:
 # renv::install("BiocManager")
 # BiocManager::install("IRanges")
 # 
-# # renv::update()
 # renv::install(c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "pandoc", "janitor", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survminer"))
 # 
-# #, dependencies = TRUE
-#  # "KMsurv"
 # # Save the project's package state:
 # renv::snapshot()
 
@@ -660,15 +657,13 @@ clif_vitals <- import_df("clif_vitals") |>
 
 
 # GCS for lap2
-clif_gcs <- import_df("clif_gcs") |> 
+clif_gcs <- import_df("clif_patient_assessments") |> 
+  filter(assessment_category == "gcs_total") |> 
       # Check if Variables match!!
       select(
         clif_hospitalizations_joined_id, hospitalization_id,
         recorded_dttm,
-        gcs_eye,
-        gcs_verbal,
-        gcs_motor,
-        gcs_total
+        gcs_total = numerical_value
         )
 
 # Labs to merge with patient so we can get pao2 all lap2 needs
