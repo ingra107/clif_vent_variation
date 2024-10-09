@@ -36,9 +36,13 @@ editor_options:
 # renv::install("BiocManager")
 # BiocManager::install("IRanges")
 # 
-# renv::install(c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "pandoc", "janitor", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survminer"))
+# # renv::install(c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "pandoc", "janitor", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survminer"))
 # 
-# # Save the project's package state:
+#  
+# 
+# renv::install(c("tidyverse", "systemfonts", "readxl", "DBI", "dbplyr", "knitr", "janitor", "data.table", "powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survival", "survminer"))
+# 
+# # # Save the project's package state:
 # renv::snapshot()
 
 
@@ -51,20 +55,45 @@ editor_options:
 #| timeit: true
 
 
-packages <- c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "janitor", "pandoc", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survival", "survminer")
-# 
+  library(tidyverse)
+  library(systemfonts)
+  library(readxl)
+  library(DBI)
+  library(dbplyr)
+  library(knitr)
+  library(janitor)
+  library(data.table)
+  library(powerjoin)
+  library(collapse)
+  library(tidyfast)
+  library(datapasta)
+  library(fst)
+  library(dtplyr)
+  library(bit64)
+  library(arrow)
+  library(hrbrthemes)
+  library(here)
+  library(table1)
+  library(rvest)
+  library(tidymodels)
+  library(pscl)
+  library(survival)
+  library(survminer)
+
+
+ # c("ggthemes","styler","writexl","pandoc","duckdb","zoo","fuzzyjoin")
 # install_if_missing <- function(package) {
 #   if (!require(package, character.only = TRUE)) {
 #     renv::install(package, dependencies = TRUE)
 #     library(package, character.only = TRUE)
 #   }
 # }
-
-load_function <- function(package) {
-    library(package, character.only = TRUE)
-}
-
-sapply(packages, load_function)
+# 
+# load_function <- function(package) {
+#     library(package, character.only = TRUE)
+# }
+# 
+# sapply(packages, load_function)
 
 ```
 
@@ -303,7 +332,7 @@ clif_respiratory_support_start <-
     
 clif_hospitalization_start <- 
   read_data("clif_hospitalization") |> 
-  select(hospitalization_id, admission_dttm, discharge_dttm, age_at_admission, patient_id, admission_name, admission_category, discharge_name, discharge_category)
+  select(hospitalization_id, admission_dttm, discharge_dttm, age_at_admission, patient_id, admission_type_name, admission_type_category, discharge_name, discharge_category)
 
 
 # getting a keep_list of hospitalization_ids that have vent or trach during their encounter... we will use this right_join the dfs below
@@ -415,14 +444,14 @@ clif_hospitalization <- clif_hospitalization_start |>
   mutate(final_discharge_dttm=fcase(
     row_number()==n(), discharge_dttm
   )) |>
-  mutate(final_admission_name=fcase(
-    row_number()==1, admission_name
+  mutate(final_admission_type_name=fcase(
+    row_number()==1, admission_type_name
   )) |>
   mutate(final_discharge_name=fcase(
     row_number()==n(), discharge_name
   )) |>
-  mutate(final_admission_category=fcase(
-    row_number()==1, admission_category
+  mutate(final_admission_type_category=fcase(
+    row_number()==1, admission_type_category
   )) |>
   mutate(final_discharge_category=fcase(
     row_number()==n(), discharge_category
@@ -438,9 +467,9 @@ clif_hospitalization <- clif_hospitalization_start |>
     age_at_admission,
     admission_dttm = final_admission_dttm,
     discharge_dttm = final_discharge_dttm,
-    admission_name = final_admission_name,
+    admission_type_name = final_admission_type_name,
     discharge_name = final_discharge_name,
-    admission_category = final_admission_category,
+    admission_type_category = final_admission_type_category,
     discharge_category = final_discharge_category
   ) |> 
   ungroup() |> 
@@ -478,7 +507,9 @@ df_cohort_keep_encounters <-
 
 df_cohort_keep <- clif_hospitalization |> 
   inner_join(df_cohort_keep_encounters) |> 
-  select(clif_hospitalizations_joined_id, hospitalization_id, patient_id) |> 
+  mutate(patient_id = as.character(patient_id)) |> 
+  mutate(hospitalization_id = as.character(patient_id)) |> 
+  select(clif_hospitalizations_joined_id, hospitalization_id) |> 
   distinct()
   
 
@@ -512,7 +543,10 @@ import_df <- function(x) {
     df <- read_function(file_path) |>
       
       # helps with glitch in open_dataset
-      mutate(across(where(is.character), as.character)) |> 
+      mutate(across(where(is.character), as.character)) |>
+      
+      # helps with glitch in open_dataset
+      mutate(across(where(is.double), as.integer)) |> 
       
       # right join early so files are smaller
       right_join(df_cohort_keep) |> 
@@ -586,9 +620,9 @@ all_objects <- ls()
 # Identify objects ending with "_start"
 df_start_objects <- grep("_start$", all_objects, value = TRUE)
 
-# Remove identified objects
-rm(list = df_start_objects)
-gc()
+# # Remove identified objects
+# rm(list = df_start_objects)
+# gc()
 
 ```
 
@@ -676,7 +710,7 @@ clif_labs <- import_df("clif_labs") |>
         lab_collect_dttm,
         lab_name,
         lab_category,
-        lab_order_category,
+        # lab_order_category,
         lab_value_numeric,
         reference_unit,
         lab_type_name) |> 
@@ -709,7 +743,7 @@ clif_patient <- import_df("clif_patient") |>
 #       # Check if Variables match!!
 #       select(clif_hospitalizations_joined_id, hospitalization_id,
 #              patient_id,
-#              # admission_category, # don't have this yet in CLIF
+#              # admission_type_category, # don't have this yet in CLIF
 #              admission_dttm,
 #              discharge_dttm,
 #              discharge_category,
@@ -2169,7 +2203,7 @@ df_encounter_laps2_temp1 <- clif_hospitalization |>
           # I think we used categorical in Rachel Kohn paper... Pat uses ED y/n
           # admission source OR you can use ED variable
     # Admit source variable (use one or the other)
-    # admission_category      = as.factor(admission_category),  don't have this yet
+    # admission_type_category      = as.factor(admission_type_category),  don't have this yet
     
     # sex_category
     female_01                 = fifelse(str_detect(sex_category, "female"), 1, 0, 0),
@@ -2312,7 +2346,7 @@ df_pre_laps2_prep2 <- df_pre_laps2_prep1 |>
          age = age_at_admission,
          female_01,
          ed_admit_01,
-         # admission_category,
+         # admission_type_category,
          death_or_hospice_01
        ) |> 
        distinct(),
