@@ -10,6 +10,8 @@
 
 2.  Run [vent_variation_qmd](01_ventilation_variation_script.qmd)
 
+    -   **After opening** you may have to click **install** at the top
+        of R studio!!... then run
     -   Cohorts
     -   Then performs project-specific quality control checks on the
         filtered cohort data
