@@ -2,3 +2,4 @@
 .Rproj.user
 .parquet
 output/intermediate/
+output/final/

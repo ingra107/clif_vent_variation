@@ -101,6 +101,27 @@ editor_options:
 ### Utils
 
 ```{r}
+## create output directories 
+create_directories <- function() {
+  # Define the directories
+  dirs <- c("output", "output/intermediate", "output/final")
+  
+  # Loop through and create directories if they don't exist
+  for (dir in dirs) {
+    if (!dir.exists(dir)) {
+      dir.create(dir, recursive = TRUE)
+      message(paste("Directory created:", dir))
+    } else {
+      message(paste("Directory already exists:", dir))
+    }
+  }
+}
+
+# Call the function to create the directories
+create_directories()
+```
+
+```{r}
 # Load the configuration utility
 source("utils/config.R")
 
@@ -736,7 +757,7 @@ clif_patient <- import_df("clif_patient") |>
         sex_category,
         race_category,
         ethnicity_category,
-        death_date) |> 
+        death_dttm) |> 
   arrange(patient_id, sex_category) |> 
   # account for possible "male" and "unknown" documentation. very race.  taking male > unknown 
   # distinct will slice the top one.
