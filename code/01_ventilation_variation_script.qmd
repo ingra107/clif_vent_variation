@@ -152,7 +152,7 @@ true_tables <- c(
   "adt",
   # "patient_assessments",
   "respiratory_support",
-  "position",
+  # "position",
   # "dialysis",
   # "intake_output",
   # "ecmo_mcs",
@@ -660,7 +660,7 @@ clif_respiratory_support <- import_df("clif_respiratory_support") |>
         resp_rate_set,
         pressure_control_set, # not used
         pressure_support_set,
-        flow_rate_set,  # not used
+        # flow_rate_set,  # not used
         # peak_inspiratory_pressure_set, # not used and only in infants
         inspiratory_time_set, # not used
         peep_set,
@@ -1065,7 +1065,7 @@ ni_toc()
 
 ```
 
-# check this person 40937
+
 ```{r}
 
 ni_tic()

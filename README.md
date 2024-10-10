@@ -1,13 +1,15 @@
-# Ventilation Variation 
+# Ventilation Variation
 
 ## Objective
 
-* Explore *low tidal volume ventilation* variation between males and females
-* Identify risk factors for length of mechanical ventilation. Specific variables of interest:
-  * `ltvv`
-  * `sex`
-  * `oxygenation_index`
-  * `hospital`
+-   Explore *low tidal volume ventilation* variation between males and
+    females
+-   Identify risk factors for length of mechanical ventilation. Specific
+    variables of interest:
+    -   `ltvv`
+    -   `sex`
+    -   `oxygenation_index`
+    -   `hospital`
 
 ## Required CLIF tables and fields
 
@@ -21,56 +23,65 @@ for more information on constructing the required tables and fields.
 List all required tables for the project here, and provide a brief
 rationale for why they are required.
 
-Example:
-
 The following tables are required:
 
 1.  **patient**: `patient_id`, `race_category`, `ethnicity_category`,
-    `sex_category` 
-2.  **hospitalization**: `patient_id`,
-    `hospitalization_id`, `admission_dttm`, `discharge_dttm`,
-    `age_at_admission` 
-3.  **vitals**: `hospitalization_id`,
-    `recorded_dttm`, `vital_category`, `vital_value` - `vital_category`
-    = 'heart_rate', 'resp_rate', 'sbp', 'dbp', 'map', 'resp_rate',
-    'spo2' 
-4.  **labs**: `hospitalization_id`, `lab_result_dttm`,
-    `lab_category`, `lab_value` - `lab_category` = 'lactate' 
-5.  **medication_admin_continuous**: `hospitalization_id`, `admin_dttm`,
-    `med_name`, `med_category`, `med_dose`, `med_dose_unit` -
-    `med_category` = "norepinephrine", "epinephrine", "phenylephrine",
-    "vasopressin", "dopamine", "angiotensin", "nicardipine",
-    "nitroprusside", "clevidipine", "cisatracurium" 
+    `sex_category`, `death_date`
+2.  **hospitalization**: `hospitalization_id`, `admission_dttm`,
+    `discharge_dttm`, `age_at_admission`, `patient_id`,
+    `admission_type_name`, `admission_type_category`, `discharge_name`,
+    `discharge_category`
+3.  **vitals**: `hospitalization_id`, `recorded_dttm`, `vital_category`,
+    `vital_value` - `vital_category` = 'heart_rate', 'resp_rate', 'sbp',
+    'dbp', 'map', 'resp_rate', 'spo2'
+4.  **labs**: `hospitalization_id`, `lab_result_dttm`, `lab_order_dttm`,
+    `lab_collect_dttm`, `lab_category`, `lab_name`, `lab_value_numeric`,
+    `reference_unit`, `lab_category` = 'sodium', 'albumin', 'anion_gap',
+    'bilirubin_total', 'bun', 'carbon_dioxide', 'creatinine',
+    'glucose_serum', 'hematocrit', 'hemoglobin', 'lactic_acid',
+    'pco2_arterial', 'po2_arterial', 'ph_arterial', 'platelet_count',
+    'so2_arterial', 'sodium', 'troponin_i', 'wbc'
+5.  **adt**: `hospitalization_id`, `recorded_dttm`, `vital_name`,
+    `vital_category`, `vital_value`, `meas_site_name`
 6.  **respiratory_support**: `hospitalization_id`, `recorded_dttm`,
-    `device_category`, `mode_category`, `tracheostomy`, `fio2_set`,
-    `lpm_set`, `resp_rate_set`, `peep_set`, `resp_rate_obs`
+    `device_name`, `device_category`, `mode_name`, `mode_category`,
+    `fio2_set`, `lpm_set`, `tidal_volume_set`, `resp_rate_set`,
+    `pressure_support_set`, `peep_set`, `tidal_volume_obs`,
+    `plateau_pressure_obs`, `peak_inspiratory_pressure_obs`,
+    `mean_airway_pressure_obs`, `minute_vent_obs`, `tracheostomy`
+7.  **patient_assessments**: `hospitalization_id`, `recorded_dttm`,
+    `numerical_value`, `assessment_category` = "gcs_total"
 
 ## Cohort identification
 
 ### Inclusion
-1.  Adults (age >= 18 years old)
+
+1.  Adults (age \>= 18 years old)
 2.  Mechnical Ventilation within 72 hours of admission
 3.  Admission from 2020-2021
-4.  Volume control with a set tidal volume within 24 hours of mechanical ventilation
+4.  Volume control with a set tidal volume within 24 hours of mechanical
+    ventilation
 
 ### Exclusion
+
 1.  Patient that died within 24 hours of mechanical ventilation
 
 ## Expected Results
 
-`Table 1` - descriptive data by hospital
-`aggregaged data 1` - male vs. female LTVV 
-`aggregated data 2` - odds ratios for regression of ventilator days
+`Table 1` - descriptive data by hospital `aggregaged data 1` - male vs.
+female LTVV `aggregated data 2` - odds ratios for regression of
+ventilator days
 
-
-project results will be saved in the [`output/final`](output/README.md) directory.
+project results will be saved in the [`output/final`](output/README.md)
+directory.
 
 ## Detailed Instructions for running the project
 
 ## 1. Setup Project Environment **(Script Developer Only)**
-*This has been completed by Nick when making this script already* (**SKIP**)  
-Describe the steps to setup the project environment.
 
+*This has been completed by Nick when making this script already*
+(**SKIP**)\
+Describe the steps to setup the project environment.
 
 ```         
 # Install renv if not already installed:
@@ -111,6 +122,8 @@ directory](code/README.md)
 
 ## Example Repositories
 
--   [CLIF Adult Sepsis Events](https://github.com/08wparker/CLIF_adult_sepsis_events) for R
+-   [CLIF Adult Sepsis
+    Events](https://github.com/08wparker/CLIF_adult_sepsis_events) for R
 
--   [CLIF Eligibility for mobilization](https://github.com/kaveriC/mobilization) for Python
+-   [CLIF Eligibility for
+    mobilization](https://github.com/kaveriC/mobilization) for Python
