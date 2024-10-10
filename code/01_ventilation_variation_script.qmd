@@ -760,7 +760,7 @@ clif_patient <- import_df("clif_patient") |>
 
 # combining them to one df
 clif_demographics_combined <- clif_patient |> 
-  left_join(clif_hospitalization) 
+  left_join(clif_hospitalization) |> select(-hospitalization_id) |> distinct()
 
 
 
@@ -1772,12 +1772,14 @@ mode_hourly_resp_support <- df_hourly_resp_support |>
   select(hospital_id_graph, mode_category)
 
 mode_hourly_resp_support_table <- mode_hourly_resp_support |> 
-  count(hospital_id_graph, mode_category)
+  count(hospital_id_graph, mode_category) |> 
+  mutate(health_system = site_name)
   
 test_mode <- mode_hourly_resp_support_table |> 
   uncount(n) 
 
-write_parquet(mode_hourly_resp_support_table, paste0("output/intermediate/mode_hourly_resp_support_table_",site_name,".parquet"))
+### A FINAL TABLE
+write_parquet(mode_hourly_resp_support_table, paste0("output/final/mode_hourly_resp_support_table_",site_name,".parquet"))
 
 ```
 
@@ -1838,7 +1840,8 @@ ggplot(
 
 
 trach_variation_table <- trach_variation |>
-  count(trach_hospital_id, vent_days_before_trach)
+  count(trach_hospital_id, vent_days_before_trach) |> 
+  mutate(health_system = site_name)
   
 test_trach <- trach_variation_table |> 
   uncount(n) 
@@ -1854,11 +1857,17 @@ write_parquet(trach_variation_table, paste0("output/final/trach_variation_table_
 # ... so no need to save the graph
 # Left the code  so you can explore your own data
 # 
-# 
-trach_excl_early_trach <- trach_variation |> filter(vent_days_before_trach > 3)
+
+trach_excl_early_trach <- trach_variation |> 
+  group_by(trach_hospital_id) |> 
+  mutate(mean_vent_days_before_trach = median(vent_days_before_trach, na.rm = TRUE)) |> 
+  # these are early trach... take them out
+  filter(vent_days_before_trach > 3) |>
+  # these are ltachs
+  filter(mean_vent_days_before_trach >5)
 
 # Create a boxplot
-ggplot(trach_variation, aes(x = trach_hospital_id, y = vent_days_before_trach)) +
+ggplot(trach_excl_early_trach, aes(x = trach_hospital_id, y = vent_days_before_trach)) +
   geom_boxplot() +
   labs(title = "Variation in Tracheostomy Ventilator Day Across Hospitals",
        x = "Hospital",
@@ -1931,11 +1940,13 @@ ltvv_variation <- df_hourly_resp_support |>
 
 
 ltvv_variation_table <- ltvv_variation |> 
-  count(hospital_id, vt_bin)
+  count(hospital_id, vt_bin) |> 
+  mutate(health_system = site_name)
 
 test_ltvv <- ltvv_variation_table |> 
   uncount(n) 
 
+### A FINAL TABLE
 write_parquet(ltvv_variation_table, paste0("output/final/ltvv_variation_table_",site_name,".parquet"))
 ```
 
@@ -2109,8 +2120,8 @@ for (hosp in hospitals) {
 ```{r}
 
 ltvv_female <- ltvv_variation |> 
-  left_join(clif_demographics_combined |> select(sex_category, clif_hospitalizations_joined_id)) |> 
-  filter(!sex_category == "Unknown") 
+  left_join(clif_demographics_combined |> select(sex_category, clif_hospitalizations_joined_id) |> distinct()) |> 
+  filter(!sex_category == "unknown") 
 
   
 ltvv_variation |> 
@@ -2190,6 +2201,10 @@ df_encounter_laps2_temp1 <- clif_hospitalization |>
   left_join(clif_patient) |> 
   left_join(clif_adt_hospital) |> 
   left_join(clif_adt_admit) |> 
+  
+  # drop this so we can call distinct and get rid of duplicates
+  select(-hospitalization_id) |> 
+  distinct() |> 
   
   # make dead/hospice column
   mutate(
@@ -3129,7 +3144,6 @@ df_laps2_scores <- df_laps_calc |>
 ## PF Ratio
 
 ```{r}
-
 clif_po2_arterial <- clif_labs |> filter(lab_category == "po2_arterial") |> rename(po2_arterial = lab_value_numeric)
 
 clif_spo2 <- clif_vitals |> filter(vital_category == "spo2") |> rename(spo2 = vital_value)
@@ -3171,11 +3185,11 @@ df_pf_ratio <- df_sf_ratio |>
          pf_ratio,
          sf_ratio, 
          location_name, 
-         location_category) 
+         location_category)
+```
 
-
-
-
+## Mean airway pressure
+```{r}
 clif_maip <- clif_respiratory_support |> filter(!is.na(mean_airway_pressure_obs)) |> select(clif_hospitalizations_joined_id, recorded_dttm, mean_airway_pressure_obs) |> 
     mutate(
     recorded_date = date(recorded_dttm),
@@ -3241,9 +3255,12 @@ death_or_hospice_01 <- clif_hospitalization |>   # make dead/hospice column
         c("hospice", "dead", "expired", "died")       , 1,
       default                                         = 0
     )) |> 
-  select(clif_hospitalizations_joined_id, mortality_enc = death_or_hospice_01)
-    
-  
+  select(clif_hospitalizations_joined_id, mortality_enc = death_or_hospice_01) |> 
+  distinct()
+```
+
+##Oxygenation index
+```{r}
 df_oxygenation_index_analysis_prep <- df_hourly_resp_support |>
   mutate(vent_01 = fifelse(device_category %in% c("imv", "trach collar"), 1, 0)) |> 
   mutate(extubated_hour = fifelse(vent_01 == 0, 1, 0)) |> 
@@ -3282,9 +3299,13 @@ df_oxygenation_index_analysis_prep <- df_hourly_resp_support |>
   mutate(mortality = fifelse(last_vent_time == recorded_dttm, mortality_enc, 0)) |> 
   
   # when ppl are extubated but die later... the extubation is what they should be censored on... not mortality
-  mutate(mortality = fifelse(extubated == 1, 0, mortality)) 
+  mutate(mortality = fifelse(extubated == 1, 0, mortality))
+```
 
 
+# Analysis
+## OI Analysis
+```{r}
 OI_analysis <- df_oxygenation_index_analysis_prep |> 
   select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, time_on_ventilator = vent_episode_hour_seq, mortality, extubated) |> 
   left_join(df_oxygenation_index |> select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, OI = oxygenation_index)) |> 
