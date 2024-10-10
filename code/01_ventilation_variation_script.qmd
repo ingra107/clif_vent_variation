@@ -511,8 +511,8 @@ df_cohort_keep_encounters <-
 df_cohort_keep <- clif_hospitalization |> 
   inner_join(df_cohort_keep_encounters) |> 
   mutate(patient_id = as.character(patient_id)) |> 
-  mutate(hospitalization_id = as.character(patient_id)) |> 
-  select(clif_hospitalizations_joined_id, hospitalization_id) |> 
+  mutate(hospitalization_id = as.character(hospitalization_id)) |> 
+  select(clif_hospitalizations_joined_id, hospitalization_id, patient_id) |> 
   distinct()
   
 
@@ -550,8 +550,8 @@ import_df <- function(x) {
       # helps with glitch in open_dataset
       mutate(across(where(is.character), as.character)) |>
       
-      # helps with glitch in open_dataset
-      mutate(across(where(is.double), as.integer)) |> 
+      # # helps with glitch in open_dataset
+      # mutate(across(where(is.double), as.integer)) |> 
       
       # right join early so files are smaller
       right_join(df_cohort_keep) |> 

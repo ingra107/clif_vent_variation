@@ -1,0 +1,5 @@
+{
+    "site_name": "your_institution",
+    "tables_path": "Y:/DataStageData/CQODE DB Backbone/rclif",
+    "file_type": "parquet"
+}
