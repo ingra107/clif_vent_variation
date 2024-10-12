@@ -740,8 +740,7 @@ clif_labs <- import_df("clif_labs") |>
         lab_category,
         # lab_order_category,
         lab_value_numeric,
-        reference_unit,
-        lab_type_name) |> 
+        reference_unit) |> 
   arrange(clif_hospitalizations_joined_id, hospitalization_id, lab_collect_dttm, lab_category, lab_value_numeric) |> 
   
   # get rid of duplicates
@@ -2268,7 +2267,7 @@ df_pre_laps2_prep1 <-
   df_encounter_laps2_temp1 |> 
   left_join(clif_labs |> 
               filter(lab_category %in% c("anion_gap",
-                                         "carbon_dioxide", # FROM BMP
+                                         "bicarbonate", # FROM BMP
                                          "bun",
                                          "creatinine",
                                          "sodium")),
@@ -2283,7 +2282,7 @@ df_pre_laps2_prep1 <-
   #     bun/cr         max
   #     bun/cr         most recent (prelaps)
   #     anion_gap      max
-  #     carbon_dioxide min
+  #     bicarbonate min
   #     ag/bicarb      most recent (prelaps)
   #     sodium         min
   #     sodium         most recent (prelaps)
@@ -2313,7 +2312,7 @@ df_pre_laps2_prep2 <- df_pre_laps2_prep1 |>
   summarise(
     bun               = fmax(bun, na.rm = TRUE),
     creatinine        = fmin(creatinine, na.rm = TRUE),
-    carbon_dioxide    = fmin(carbon_dioxide, na.rm = TRUE),
+    bicarbonate       = fmin(bicarbonate, na.rm = TRUE),
     anion_gap         = fmax(anion_gap, na.rm = TRUE),
     sodium            = fmin(sodium, na.rm = TRUE),
 
@@ -2341,7 +2340,7 @@ df_pre_laps2_prep2 <- df_pre_laps2_prep1 |>
   # fill in ... its only the first 24 hours so its ok
   fill(c(bun,
          creatinine,
-         carbon_dioxide,
+         bicarbonate,
          anion_gap,
          sodium), 
        .direction = "downup") |>
@@ -2352,7 +2351,7 @@ df_pre_laps2_prep2 <- df_pre_laps2_prep1 |>
     mutate(
       bun_recent                = flast(bun),
       creatinine_recent         = flast(creatinine),
-      carbon_dioxide_recent     = flast(carbon_dioxide),
+      bicarbonate_recent        = flast(bicarbonate),
       anion_gap_recent          = flast(anion_gap),
       sodium_recent             = flast(sodium)
            ) |> 
@@ -2364,7 +2363,7 @@ df_pre_laps2_prep2 <- df_pre_laps2_prep1 |>
     # make ratios
     sodium              = sodium_recent,
     bun_cr_ratio        = bun_recent/creatinine_recent,
-    ag_hco3_ratio       = (anion_gap_recent/carbon_dioxide_recent)*1000
+    ag_hco3_ratio       = (anion_gap_recent/bicarbonate_recent)*1000
   ) |> 
   select(-ends_with("recent")) |> 
   
@@ -2491,7 +2490,7 @@ df_laps2_prep1 <-
                                      "anion_gap",
                                      "bilirubin_total",
                                      "bun",
-                                     "carbon_dioxide",
+                                     "bicarbonate",
                                      "creatinine",
                                      "glucose_serum",
                                      "hematocrit",
@@ -2544,13 +2543,13 @@ df_laps2_prep2 <- df_laps2_prep1 |>
     anion_gap           = fmax(anion_gap, na.rm = TRUE),
     bilirubin_total     = fmax(bilirubin_total, na.rm = TRUE),
     bun                 = fmax(bun, na.rm = TRUE),
-    carbon_dioxide      = fmin(carbon_dioxide, na.rm = TRUE),
+    bicarbonate         = fmin(bicarbonate, na.rm = TRUE),
     creatinine          = fmax(creatinine, na.rm = TRUE),
     glucose_serum       = fmin(glucose_serum, na.rm = TRUE),
     hematocrit          = fmax(hematocrit, na.rm = TRUE),
     lactic_acid         = fmax(lactic_acid, na.rm = TRUE),
-    pco2_arterial               = fmax(pco2_arterial, na.rm = TRUE),
-    po2_arterial                = fmax(po2_arterial, na.rm = TRUE),
+    pco2_arterial       = fmax(pco2_arterial, na.rm = TRUE),
+    po2_arterial        = fmax(po2_arterial, na.rm = TRUE),
     ph_arterial         = fmin(ph_arterial, na.rm = TRUE),
     platelet_count      = fmin(platelet_count, na.rm = TRUE),
     so2_arterial        = fmin(so2_arterial, na.rm = TRUE),
@@ -2582,7 +2581,7 @@ df_laps2_prep2 <- df_laps2_prep1 |>
 #       anion_gap,
 #       bilirubin_total,
 #       bun,
-#       carbon_dioxide,
+#       bicarbonate,
 #       creatinine,
 #       glucose,
 #       hematocrit,
@@ -2616,7 +2615,7 @@ df_laps2_dayone_prep1 <-
                                      "anion_gap",
                                      "bilirubin_total",
                                      "bun",
-                                     "carbon_dioxide",
+                                     "bicarbonate",
                                      "creatinine",
                                      "glucose_serum",
                                      "hematocrit",
@@ -2675,13 +2674,13 @@ df_laps2_dayone_prep2 <- df_laps2_dayone_prep1 |>
     anion_gap           = fmax(anion_gap, na.rm = TRUE),
     bilirubin_total     = fmax(bilirubin_total, na.rm = TRUE),
     bun                 = fmax(bun, na.rm = TRUE),
-    carbon_dioxide      = fmin(carbon_dioxide, na.rm = TRUE),
+    bicarbonate         = fmin(bicarbonate, na.rm = TRUE),
     creatinine          = fmax(creatinine, na.rm = TRUE),
     glucose_serum       = fmin(glucose_serum, na.rm = TRUE),
     hematocrit          = fmax(hematocrit, na.rm = TRUE),
     lactic_acid         = fmax(lactic_acid, na.rm = TRUE),
-    pco2_arterial               = fmax(pco2_arterial, na.rm = TRUE),
-    po2_arterial                = fmax(po2_arterial, na.rm = TRUE),
+    pco2_arterial       = fmax(pco2_arterial, na.rm = TRUE),
+    po2_arterial        = fmax(po2_arterial, na.rm = TRUE),
     ph_arterial         = fmin(ph_arterial, na.rm = TRUE),
     platelet_count      = fmin(platelet_count, na.rm = TRUE),
     so2_arterial        = fmin(so2_arterial, na.rm = TRUE),
