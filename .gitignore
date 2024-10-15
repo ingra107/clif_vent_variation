@@ -1,5 +1,6 @@
 .DS_Store
 .Rproj.user
 .parquet
+.Rprofile
 output/intermediate/
 output/final/
