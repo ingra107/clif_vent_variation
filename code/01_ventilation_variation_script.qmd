@@ -2256,6 +2256,78 @@ df_encounter_laps2_temp1 <- clif_hospitalization |>
 
 ```
 
+## Anion Gap with 1 hour tolerance
+```{r}
+
+if(!any(clif_labs$lab_category == "anion_gap")){
+  
+  print("no anion_gap found... we will make one for you!!")
+
+# Set a time tolerance, e.g., 1 hour
+time_tolerance <- hours(1)
+
+# Create recorded_date from recorded_dttm
+clif_labs <- clif_labs %>%
+  mutate(recorded_date = as.Date(recorded_dttm))
+
+# Separate the lab values for sodium, bicarbonate, and chloride, and create recorded_date
+sodium_df <- clif_labs %>%
+  filter(lab_category == "sodium") %>%
+  select(clif_hospitalizations_joined_id, recorded_dttm, recorded_date, sodium = lab_value_numeric,
+         lab_order_dttm, lab_result_dttm)
+
+bicarbonate_df <- clif_labs %>%
+  filter(lab_category == "bicarbonate") %>%
+  select(clif_hospitalizations_joined_id, recorded_dttm, recorded_date, bicarbonate = lab_value_numeric)
+
+chloride_df <- clif_labs %>%
+  filter(lab_category == "chloride") %>%
+  select(clif_hospitalizations_joined_id, recorded_dttm, recorded_date, chloride = lab_value_numeric)
+
+# Perform a join by clif_hospitalizations_joined_id and recorded_date to limit the join size
+anion_gap_df <- sodium_df %>%
+  full_join(bicarbonate_df, by = c("clif_hospitalizations_joined_id", "recorded_date")) %>%
+  full_join(chloride_df, by = c("clif_hospitalizations_joined_id", "recorded_date")) %>%
+  
+  # Calculate the time differences between recorded_dttm values
+  mutate(time_diff_sodium_bicarbonate = abs(difftime(recorded_dttm.x, recorded_dttm.y, units = "mins")),
+         time_diff_sodium_chloride = abs(difftime(recorded_dttm.x, recorded_dttm, units = "mins")),
+         
+         # Apply the time tolerance (1 hour)
+         within_tolerance_bicarbonate = time_diff_sodium_bicarbonate <= time_tolerance,
+         within_tolerance_chloride = time_diff_sodium_chloride <= time_tolerance) %>%
+  
+  # Filter to retain rows where the time differences are within the tolerance
+  filter(within_tolerance_bicarbonate & within_tolerance_chloride) %>%
+  
+  # Calculate the anion gap: sodium - (bicarbonate + chloride)
+  mutate(anion_gap = sodium - (bicarbonate + chloride)) %>%
+  
+  # Select the relevant columns
+  select(clif_hospitalizations_joined_id, recorded_dttm.x, anion_gap, lab_order_dttm, lab_result_dttm, recorded_date)
+
+# Rename recorded_dttm.x to recorded_dttm for consistency
+anion_gap_df <- anion_gap_df %>%
+  mutate(reference_unit = "meq/l") |> 
+  mutate(lab_name = "anion gap") |> 
+  mutate(lab_category = "anion_gap") |>
+  rename(lab_value_numeric = anion_gap) |> 
+  rename(recorded_dttm = recorded_dttm.x)
+
+
+clif_labs <- clif_labs |> 
+              bind_rows(anion_gap_df)
+
+
+} else {
+  
+  print("you already have anion gap")
+  print("please proceed!!")
+}
+
+```
+
+
 ## prelaps
 
 ```{r}
@@ -2263,6 +2335,9 @@ df_encounter_laps2_temp1 <- clif_hospitalization |>
 ############
 # Pre-Laps... want the most recent within 24 hours of admission
 ############
+
+
+
 df_pre_laps2_prep1 <- 
   df_encounter_laps2_temp1 |> 
   left_join(clif_labs |> 
