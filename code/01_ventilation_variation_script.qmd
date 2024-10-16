@@ -3869,6 +3869,15 @@ for (var in variables) {
 
 ```
 
+```{r}
+### 
+### 
+### 
+
+
+## cumulative hours of high tidal volume ventilation
+
+```
 
 # Analysis
 
