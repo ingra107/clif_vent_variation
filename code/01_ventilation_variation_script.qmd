@@ -36,11 +36,11 @@ editor_options:
 # renv::install("BiocManager")
 # BiocManager::install("IRanges")
 # 
-# # renv::install(c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "pandoc", "janitor", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survminer"))
+# # renv::install(c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "pandoc", "janitor", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survminer", "gt", "gtsummary", "broom.helpers"))
 # 
 #  
 # 
-# renv::install(c("tidyverse", "systemfonts", "readxl", "DBI", "dbplyr", "knitr", "janitor", "data.table", "powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survival", "survminer"))
+# renv::install(c("tidyverse", "systemfonts", "readxl", "DBI", "dbplyr", "knitr", "janitor", "data.table", "powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survival", "survminer", "gt", "gtsummary", "broom.helpers"))
 # 
 # # # Save the project's package state:
 # renv::snapshot()
@@ -75,7 +75,10 @@ editor_options:
   library(here)
   library(table1)
   library(rvest)
-  library(tidymodels)
+  library(gt)
+  library(gtsummary)
+  library(broom.helpers)
+  # library(tidymodels)
   library(pscl)
   library(survival)
   library(survminer)
@@ -357,7 +360,10 @@ clif_respiratory_support_start <-
     
 clif_hospitalization_start <- 
   read_data("clif_hospitalization") |> 
-  select(hospitalization_id, admission_dttm, discharge_dttm, age_at_admission, patient_id, admission_type_name, admission_type_category, discharge_name, discharge_category)
+  select(hospitalization_id, admission_dttm, discharge_dttm, age_at_admission, patient_id, 
+         # admission_type_name, 
+         # admission_type_category, 
+         discharge_name, discharge_category)
 
 
 # getting a keep_list of hospitalization_ids that have vent or trach during their encounter... we will use this right_join the dfs below
@@ -469,15 +475,15 @@ clif_hospitalization <- clif_hospitalization_start |>
   mutate(final_discharge_dttm=fcase(
     row_number()==n(), discharge_dttm
   )) |>
-  mutate(final_admission_type_name=fcase(
-    row_number()==1, admission_type_name
-  )) |>
+  # mutate(final_admission_type_name=fcase(
+  #   row_number()==1, admission_type_name
+  # )) |>
   mutate(final_discharge_name=fcase(
     row_number()==n(), discharge_name
   )) |>
-  mutate(final_admission_type_category=fcase(
-    row_number()==1, admission_type_category
-  )) |>
+  # mutate(final_admission_type_category=fcase(
+  #   row_number()==1, admission_type_category
+  # )) |>
   mutate(final_discharge_category=fcase(
     row_number()==n(), discharge_category
   )) |>
@@ -492,9 +498,9 @@ clif_hospitalization <- clif_hospitalization_start |>
     age_at_admission,
     admission_dttm = final_admission_dttm,
     discharge_dttm = final_discharge_dttm,
-    admission_type_name = final_admission_type_name,
+    # admission_type_name = final_admission_type_name,
     discharge_name = final_discharge_name,
-    admission_type_category = final_admission_type_category,
+    # admission_type_category = final_admission_type_category,
     discharge_category = final_discharge_category
   ) |> 
   ungroup() |> 
@@ -2183,6 +2189,11 @@ theme(
 
 ```
 
+# Gender analysis 
+```{r}
+
+```
+
 
 # Laps2 Score
 
@@ -2193,8 +2204,7 @@ theme(
 ### change to hospital_icu
 clif_adt_hospital <-  clif_adt |>
   mutate(location_category = factor(location_category,
-                                    levels = (c("icu", "floor", "ed", "procedural", "other")),
-                                    ordered = TRUE)) |> 
+                                    levels = (c("icu", "stepdown", "ward", "er", "procedural", "other")),                                    ordered = TRUE)) |> 
   group_by(clif_hospitalizations_joined_id) |> 
   arrange(clif_hospitalizations_joined_id, location_category, in_dttm) |> 
   
@@ -2242,7 +2252,7 @@ df_encounter_laps2_temp1 <- clif_hospitalization |>
     dt_24hours_after_admit    = admission_dttm + hours(24),
     
     # ED binary variable
-    ed_admit_01               = fifelse(str_detect(first_location_category, "ed"), 1, 0, 0),
+    ed_admit_01               = fifelse(str_detect(first_location_category, "er"), 1, 0, 0),
           # I think we used categorical in Rachel Kohn paper... Pat uses ED y/n
           # admission source OR you can use ED variable
     # Admit source variable (use one or the other)
@@ -3409,7 +3419,9 @@ first_intubation_data <- df_oxygenation_index_analysis_prep |>
   left_join(clif_patient |> select(-hospitalization_id) |> distinct()) |> 
   left_join(df_oxygenation_index |> select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, oxygenation_index, pf_ratio, sf_ratio) |> distinct()) |>
   left_join(df_laps2_scores |> select(clif_hospitalizations_joined_id, recorded_date, laps2) |> distinct()) |> 
-  left_join(clif_hospitalization |> select(clif_hospitalizations_joined_id, age_at_admission, admission_type_category)) |> 
+  left_join(clif_hospitalization |> select(clif_hospitalizations_joined_id, age_at_admission, admission_dttm, discharge_dttm
+                                           # admission_type_category
+                                           )) |> 
 
   # Filter data for the first intubation
   filter(vent_episode_id == 1)
@@ -3439,197 +3451,100 @@ model_data <- delta_oxygenation %>%
                         age_at_admission = first(age_at_admission),
                         sex_category = first(sex_category),
                         race_category = first(race_category),
-                        ethnicity_category = first(ethnicity_category),
+                        # ethnicity_category = first(ethnicity_category),
                         hospital_id = first(hospital_id)),
             by = "clif_hospitalizations_joined_id")
 
-# Fit the logistic regression model
-model <- glm(mortality_enc ~ worst_oxygenation_24hr + delta_oxygenation + 
-              age_at_admission + sex_category + race_category + 
-               # ethnicity_category + 
-               hospital_id,
-             data = model_data, family = binomial())
+# Count the number of encounters per hospital_id and assign "Hospital 1", "Hospital 2", etc.
+hospital_order <- model_data %>%
+  count(hospital_id, name = "encounters") %>%
+  arrange(desc(encounters)) %>%
+  mutate(hospital_label = paste0("Hospital ", row_number()))
 
-# Summary of the model
-summary(model)
-
-
-# Extract the model results (odds ratios, confidence intervals, and p-values)
-model_results <- broom::tidy(model, exponentiate = TRUE, conf.int = TRUE)
-
-# Save the results as a CSV file
-write.csv(model_results, paste0("output/final/logistic_regression_results_.", site_name,"_", Sys.Date(),".csv"), row.names = FALSE)
-
-
-# Create a forest plot from the model results
-forest_plot <- ggplot(model_results, aes(x = term, y = estimate)) +
-  geom_point() +
-  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2) +
-  coord_flip() +
-  labs(x = "Variables", y = "Odds Ratio (log scale)") +
-  scale_y_log10() +  # Log scale for odds ratios
-  theme_minimal()
-
-# Show the forest plot
-print(forest_plot)
-
-# Save the plot
-ggsave("output/intermediate/forest_plot.png", forest_plot)
+# Join the labeled hospitals back to your model_data
+model_data <- model_data %>%
+  left_join(hospital_order %>% select(hospital_id, hospital_label), by = "hospital_id")
 
 
 
-# Modify the logistic regression model to include interaction
-model_interaction <- glm(mortality_enc ~ worst_oxygenation_24hr * delta_oxygenation + 
-                         age_at_admission + sex_category + race_category + 
-                           # ethnicity_category + 
-                           hospital_id,
-                         data = model_data, family = binomial())
+# 
+# # Fit the logistic regression model
+# model <- glm(mortality_enc ~ worst_oxygenation_24hr + delta_oxygenation + 
+#               age_at_admission + sex_category + race_category + 
+#                # ethnicity_category + 
+#                hospital_id,
+#              data = model_data, family = binomial())
+# 
+# # Summary of the model
+# summary(model)
+# 
+# 
+# # Extract the model results (odds ratios, confidence intervals, and p-values)
+# model_results <- broom::tidy(model, exponentiate = TRUE, conf.int = TRUE)
+# 
+# # Save the results as a CSV file
+# write.csv(model_results, paste0("output/final/logistic_regression_results_.", site_name,"_", Sys.Date(),".csv"), row.names = FALSE)
+# 
+# 
+# # Create a forest plot from the model results
+# forest_plot <- ggplot(model_results, aes(x = term, y = estimate)) +
+#   geom_point() +
+#   geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2) +
+#   coord_flip() +
+#   labs(x = "Variables", y = "Odds Ratio (log scale)") +
+#   scale_y_log10() +  # Log scale for odds ratios
+#   theme_minimal()
+# 
+# # Show the forest plot
+# print(forest_plot)
+# 
+# # Save the plot
+# ggsave("output/intermediate/forest_plot.png", forest_plot)
+# 
+# 
+# 
+# # Modify the logistic regression model to include interaction
+# model_interaction <- glm(mortality_enc ~ worst_oxygenation_24hr * delta_oxygenation + 
+#                          age_at_admission + sex_category + race_category + 
+#                            # ethnicity_category + 
+#                            hospital_id,
+#                          data = model_data, family = binomial())
+# 
+# # Extract results with interaction term
+# model_interaction_results <- broom::tidy(model_interaction, exponentiate = TRUE, conf.int = TRUE)
+# 
+# summary(model_interaction)
+# 
+# # Save the interaction model results as a CSV file
+# write.csv(model_interaction_results, paste0("output/final/logistic_regression_interaction_results_.", site_name,"_", Sys.Date(),".csv"), row.names = FALSE)
+# 
+# # Create a forest plot for the interaction model
+# forest_plot_interaction <- ggplot(model_interaction_results, aes(x = term, y = estimate)) +
+#   geom_point() +
+#   geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2) +
+#   coord_flip() +
+#   labs(x = "Variables (with Interaction)", y = "Odds Ratio (log scale)") +
+#   scale_y_log10() +  # Log scale for odds ratios
+#   theme_minimal()
+# 
+# # Show the forest plot
+# print(forest_plot_interaction)
+# 
+# # Save the interaction plot
+# ggsave("output/intermediate/forest_plot_interaction.png", forest_plot_interaction)
 
-# Extract results with interaction term
-model_interaction_results <- broom::tidy(model_interaction, exponentiate = TRUE, conf.int = TRUE)
-
-summary(model_interaction)
-
-# Save the interaction model results as a CSV file
-write.csv(model_interaction_results, paste0("output/final/logistic_regression_interaction_results_.", site_name,"_", Sys.Date(),".csv"), row.names = FALSE)
-
-# Create a forest plot for the interaction model
-forest_plot_interaction <- ggplot(model_interaction_results, aes(x = term, y = estimate)) +
-  geom_point() +
-  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2) +
-  coord_flip() +
-  labs(x = "Variables (with Interaction)", y = "Odds Ratio (log scale)") +
-  scale_y_log10() +  # Log scale for odds ratios
-  theme_minimal()
-
-# Show the forest plot
-print(forest_plot_interaction)
-
-# Save the interaction plot
-ggsave("output/intermediate/forest_plot_interaction.png", forest_plot_interaction)
-
-
-
-```
-
-
-## regression function
-```{r}
-
-library(stringr)  # For string manipulation
-
-run_analysis_for_variable <- function(var_name, interaction_term = FALSE) {
-  
-  # Calculate the worst value in the first 24 hours
-  worst_24hr <- first_intubation_data %>%
-    filter(vent_episode_hour_seq < 24) %>%
-    group_by(clif_hospitalizations_joined_id) %>%
-    summarise(worst_24hr = fmin(get(var_name), na.rm = TRUE))
-  
-  # Calculate the worst value between 48 and 72 hours
-  worst_48_72hr <- first_intubation_data %>%
-    filter(vent_episode_hour_seq >= 48 & vent_episode_hour_seq < 72) %>%
-    group_by(clif_hospitalizations_joined_id) %>%
-    summarise(worst_48_72hr = fmin(get(var_name), na.rm = TRUE))
-  
-  # Calculate the delta change
-  delta_var <- worst_48_72hr %>%
-    left_join(worst_24hr, by = "clif_hospitalizations_joined_id") %>%
-    mutate(delta_var = worst_48_72hr - worst_24hr)
-  
-  # Prepare the dataset for the logistic regression model
-  model_data <- delta_var %>%
-    left_join(first_intubation_data %>%
-                group_by(clif_hospitalizations_joined_id) %>%
-                summarise(mortality_enc = first(mortality_enc),
-                          age_at_admission = first(age_at_admission),
-                          sex_category = first(str_to_title(sex_category)),  # Capitalize categories
-                          race_category = first(str_to_title(race_category)),  # Capitalize categories
-                          ethnicity_category = first(str_to_title(ethnicity_category)),  # Capitalize categories
-                          hospital_id = first(hospital_id)),
-              by = "clif_hospitalizations_joined_id")
-  
-  # Model formula (with or without interaction)
-  if (interaction_term) {
-    formula <- as.formula(paste("mortality_enc ~ worst_24hr * delta_var + 
-                                 age_at_admission + sex_category + 
-                                 race_category + hospital_id"))
-  } else {
-    formula <- as.formula(paste("mortality_enc ~ worst_24hr + delta_var + 
-                                 age_at_admission + sex_category + 
-                                 race_category + hospital_id"))
-  }
-  
-  # Fit the logistic regression model
-  model <- glm(formula, data = model_data, family = binomial())
-  
-  # Extract the model results (odds ratios, confidence intervals, and p-values)
-  model_results <- broom::tidy(model, exponentiate = TRUE, conf.int = TRUE)
-  
-  # Save the results as a CSV file
-  suffix <- ifelse(interaction_term, "interaction", "no_interaction")
-  write.csv(model_results, paste0("output/final/logistic_regression_", var_name, "_", suffix, "_results_", Sys.Date(), ".csv"), row.names = FALSE)
-  
-  # Ensure readable names for terms
-  model_results$term <- str_replace_all(model_results$term, "_", " ")  # Replace underscores
-  model_results$term <- str_replace(model_results$term, "(?i)sex category", "")  # Remove "category" prefix
-  model_results$term <- str_replace(model_results$term, "(?i)race category", "")  # Clean race category
-  model_results$term <- str_replace(model_results$term, "(?i)ethnicity category", "")  # Clean ethnicity
-  model_results$term <- str_replace(model_results$term, "(?i)hospital id", "")  # Clean hospital
-  
-  
-   # Prepend the variable name to relevant terms
-  model_results$term <- ifelse(model_results$term %in% c("Worst 24hr", "Delta Var"), 
-                               paste(var_name, model_results$term), 
-                               model_results$term)
-  
-  
-  # Create a forest plot
-  forest_plot <- ggplot(model_results, aes(x = term, y = estimate)) +
-    geom_point() +
-    geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2) +
-    coord_flip() +
-    labs(title = paste("Forest Plot for", str_to_title(var_name)),
-         x = paste("Variables (", str_to_title(var_name), ")", sep = ""),
-         y = "Odds Ratio (log scale)") +  # Explicitly define axis labels
-    scale_y_log10() +  # Log scale for odds ratios
-    theme_minimal() +
-    theme(axis.text.y = element_text(size = 10, face = "bold"),  # Make Y-axis text clearer
-          axis.title.x = element_text(size = 12, face = "bold"),
-          axis.title.y = element_text(size = 12, face = "bold"))
-  
-  # Show and save the forest plot
-  print(forest_plot)
-  ggsave(paste0("output/intermediate/forest_plot_", var_name, "_", suffix, ".png"), forest_plot)
-  
-  return(summary(model))
-}
-
-# Run the analysis for each variable (oxygenation_index, pf_ratio, sf_ratio, laps2)
-variables <- c("oxygenation_index", "pf_ratio", "sf_ratio", "laps2")
-
-for (var in variables) {
-  # Without interaction
-  run_analysis_for_variable(var, interaction_term = FALSE)
-  
-  # With interaction
-  run_analysis_for_variable(var, interaction_term = TRUE)
-}
 
 
 ```
 
 
-## finalfit
+## regression function / finalfit
 ```{r}
-# Install finalfit package if necessary
-# install.packages("finalfit")
-
-library(finalfit)
-library(dplyr)
 
 run_analysis_for_variable_finalfit <- function(var_name, interaction_term = FALSE) {
   
+  print(var_name)
+  
   # Calculate the worst value in the first 24 hours
   worst_24hr <- first_intubation_data %>%
     filter(vent_episode_hour_seq < 24) %>%
@@ -3651,43 +3566,80 @@ run_analysis_for_variable_finalfit <- function(var_name, interaction_term = FALS
   model_data <- delta_var %>%
     left_join(first_intubation_data %>%
                 group_by(clif_hospitalizations_joined_id) %>%
-                summarise(mortality_enc = first(mortality_enc),
-                          age_at_admission = first(age_at_admission),
-                          sex_category = first(sex_category), 
-                          race_category = first(race_category), 
-                          ethnicity_category = first(ethnicity_category),
-                          hospital_id = first(hospital_id)),
+                summarise(mortality_enc = ffirst(mortality_enc),
+                          age_at_admission = ffirst(age_at_admission),
+                          sex_category = ffirst(str_to_title(sex_category)), 
+                          race_category = ffirst(str_to_title(race_category)), 
+                          # ethnicity_category = first(ethnicity_category),
+                          hospital_id = ffirst(str_to_title(hospital_id))),
               by = "clif_hospitalizations_joined_id")
+    
+  # Ensure model_data is a dataframe for finalfit
+  model_data <- as.data.frame(model_data)
+  
+  # Count the number of encounters per hospital_id and assign "Hospital 1", "Hospital 2", etc.
+  hospital_order <- model_data %>%
+    count(hospital_id, name = "encounters") %>%
+    arrange(desc(encounters)) %>%
+    mutate(hospital_label = paste0("Hospital ", row_number()))
+  
+  # Join the labeled hospitals back to your model_data
+  model_data <- model_data %>%
+    left_join(hospital_order %>% select(hospital_id, hospital_label), by = "hospital_id") |> 
+    mutate(hospital_id = hospital_label)
+  
   
   # Prepare the finalfit input: dependent and explanatory variables
   dependent <- "mortality_enc"
   
   explanatory <- c("worst_24hr", "delta_var", "age_at_admission", "sex_category", 
-                   "race_category", "ethnicity_category", "hospital_id")
+                   "race_category", "hospital_id")
   
   if (interaction_term) {
     explanatory <- c("worst_24hr*delta_var", explanatory[-c(1, 2)])  # Add interaction term
   }
   
-  # Fit the logistic regression model with finalfit
-  fit <- model_data %>%
-    finalfit(dependent, explanatory, family = "binomial")
   
-  # Display the finalfit table
-  fit
+  # Fit the logistic regression model
+  explanatory_lr <- explanatory
+  form_lr <- paste(dependent, "~", paste(explanatory_lr, collapse = " + "))
+  fit <- model_data |> 
+    with(glm(formula = as.formula(form_lr), family = binomial(link = "logit")))
   
-  # Save the finalfit table as a CSV file
+  # Display the formula for the regression
+  print("This is the formula for the regression")
+  print(form_lr)
+  
+  
+  print(summary(fit))
+  
+  # Generate a regression table using tbl_regression
+  tbl <- model_data |> 
+    with(glm(formula = as.formula(form_lr), family = binomial(link = "logit"))) %>%
+    tbl_regression(exponentiate = TRUE) %>%
+    bold_labels() %>%
+    italicize_levels() %>%
+    bold_p() %>%
+    as_gt() %>%
+    opt_vertical_padding(scale = 0.5) %>%
+    opt_row_striping()
+  
+  # Print the table
+  print(tbl)
+  
+  # Save the table to a file (optional)
   suffix <- ifelse(interaction_term, "interaction", "no_interaction")
-  write.csv(fit, paste0("output/final/finalfit_", var_name, "_", suffix, "_results_", Sys.Date(), ".csv"), row.names = FALSE)
+  gtsave(tbl, filename = paste0("output/final/finalfit_", var_name, "_", suffix, "_table_", Sys.Date(), ".html"))
   
-  # Plot the forest plot
-  plot <- finalfit::ff_plot(fit) +
-    ggtitle(paste("Forest Plot for", str_to_title(var_name))) +
-    theme_minimal()
+  # Plot the odds ratio plot
+  or_plot <- model_data |> 
+    or_plot(dependent, c(explanatory_lr), glmfit = fit, 
+            dependent_label = paste("Outcome: Mortality", var_name)) 
   
   # Display and save the plot
-  print(plot)
-  ggsave(paste0("output/intermediate/forest_plot_finalfit_", var_name, "_", suffix, ".png"), plot)
+   print(or_plot)
+
+  ggsave(paste0("output/intermediate/forest_plot_finalfit_", var_name, "_", suffix, ".png"), plot = or_plot)
   
   return(fit)
 }
@@ -3699,9 +3651,105 @@ for (var in variables) {
   # Without interaction
   run_analysis_for_variable_finalfit(var, interaction_term = FALSE)
   
-  # With interaction
-  run_analysis_for_variable_finalfit(var, interaction_term = TRUE)
+  # # With interaction
+  # run_analysis_for_variable_finalfit(var, interaction_term = TRUE)
 }
+```
+
+
+# Exposure over time Analysis to HTVV
+```{r}
+# Calculate the worst oxygenation index in the first 24 hours
+worst_in_24hr <- first_intubation_data %>%
+    filter(vent_episode_id == 1) |> 
+  filter(vent_episode_hour_seq <=24) %>%
+  group_by(clif_hospitalizations_joined_id) %>%
+  summarise(
+    worst_laps2_24hr = fmax(laps2, na.rm = TRUE),
+    worst_sf_ratio = fmin(sf_ratio, na.rm = TRUE),
+    max_hours_in_24 = fmax(vent_episode_hour_seq, na.rm = TRUE)
+    ) |> 
+  ungroup()
+
+htvv_step1 <- first_intubation_data |> 
+  # 1 if high tidal volume, 0 otherwise
+  mutate(htvv = ifelse(tidal_volume_set > (6 * ibw), 1, 0)) |>  
+  # Cumulative hours while on first episode
+  group_by(clif_hospitalizations_joined_id) %>%
+  mutate(cumulative_htvv_hours = fcumsum(htvv * (vent_episode_id == 1), fill = TRUE)) |> 
+  ungroup() |>
+  # only keep first vent episode
+  filter(vent_episode_id == 1) |> 
+  # fixing death_dttm
+  mutate(disch_death_diff = difftime(death_dttm, discharge_dttm, units = "days")) |> 
+  mutate(death_dttm = ymd_hms(death_dttm, quiet = T)) |> 
+  mutate(adjusted_dttm = if_else(abs(disch_death_diff) <= 1, discharge_dttm, death_dttm)) |> 
+  mutate(adjusted_dttm = as_datetime(adjusted_dttm)) |> 
+  mutate(recorded_death_diff = difftime(adjusted_dttm, recorded_dttm, units = "hours")) |> 
+  mutate(within_48hr_death = if_else(recorded_death_diff <= 48, 1, 0, missing = 0)) |> 
+  # Event is death without extubation
+  mutate(event = within_48hr_death) |> 
+  left_join(worst_in_24hr) |> 
+  filter(!max_hours_in_24 < 24) |> 
+  # filter(hospital_id != "bethesda") |> 
+  distinct() |> 
+  filter(vent_episode_hour_seq < 1000)
+  
+
+
+# Create the survival object
+survival_object_48hr <- with(htvv_step1, Surv(time = vent_episode_hour_seq, event = event))
+
+# Fit the Cox model for predicting death within 48 hours
+cox_48hr <- coxph(survival_object_48hr ~ cumulative_htvv_hours + sex_category + hospital_id + worst_laps2_24hr + worst_sf_ratio, data = htvv_step1)
+
+# Summary of the model
+summary(cox_48hr)
+
+
+fit_mortality <- survfit(cox_48hr)
+plot(fit_mortality, main = "Survival Curve for Mortality", xlab = "Ventilation Hours", ylab = "Survival Probability")
+
+
+cox.zph(cox_48hr)
+
+
+htvv_strata <- htvv_step1 %>%
+  group_by(clif_hospitalizations_joined_id) |> 
+  mutate(max_cumulative_htvv_hours = fmax(cumulative_htvv_hours, na.rm = TRUE)) |> 
+  ungroup() |> 
+  distinct(clif_hospitalizations_joined_id, max_cumulative_htvv_hours) |> 
+  mutate(htvv_group = ntile(max_cumulative_htvv_hours, 4))  # Divide into 4 groups (quartiles)
+
+htvv_step1 <- htvv_step1 %>%
+  left_join(htvv_strata)
+
+
+# Stratified survival curves by HTVV group
+fit_htvv <- survfit(coxph(Surv(vent_episode_hour_seq, event) ~ strata(htvv_group) + sex_category + hospital_id + worst_laps2_24hr + worst_sf_ratio, data = htvv_step1))
+
+# Plot survival curves for different HTVV groups
+plot(fit_htvv, col = 1:4, lty = 1:4, main = "Effect of HTVV on Survival", xlab = "Ventilation Hours", ylab = "Survival Probability")
+legend("topright", legend = c("1st Quartile", "2nd Quartile", "3rd Quartile", "4th Quartile"), col = 1:4, lty = 1:4)
+
+
+# Choose specific HTVV levels for plotting
+htvv_levels <- c(10, 30, 90, 500, 1000)
+
+# Predict survival curves for specific HTVV levels
+new_data <- data.frame(cumulative_htvv_hours = htvv_levels,
+                       sex_category = "male",  # Set other covariates (e.g., male)
+                       hospital_id = "ummc",  # Set a specific hospital
+                       worst_laps2_24hr = mean(htvv_step1$worst_laps2_24hr, na.rm = TRUE),
+                       worst_sf_ratio = mean(htvv_step1$worst_sf_ratio, na.rm = TRUE))
+
+# Generate survival predictions
+surv_pred <- survfit(cox_48hr, newdata = new_data)
+
+# Plot the survival curves
+plot(surv_pred, col = 1:5, lty = 1:5, main = "Survival for Different HTVV Levels", xlab = "Ventilation Hours", ylab = "Survival Probability")
+legend("topright", legend = paste("HTVV =", htvv_levels, "hours"), col = 1:5, lty = 1:5)
+
 
 ```
 
