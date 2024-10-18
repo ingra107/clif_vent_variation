@@ -36,7 +36,7 @@ editor_options:
 # renv::install("BiocManager")
 # BiocManager::install("IRanges")
 # 
-# # renv::install(c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "pandoc", "janitor", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survminer", "gt", "gtsummary", "broom.helpers"))
+# # renv::install(c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "pandoc", "janitor", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survminer", "gt", "gtsummary", "broom.helpers", "broom.mixed", "lme4", ""lmerTest"))
 # 
 #  
 # 
@@ -54,7 +54,7 @@ editor_options:
 #| label: installing packages
 #| timeit: true
 
-
+  library(lmerTest)
   library(tidyverse)
   library(systemfonts)
   library(readxl)
@@ -78,10 +78,12 @@ editor_options:
   library(gt)
   library(gtsummary)
   library(broom.helpers)
+  library(broom.mixed)
   # library(tidymodels)
   library(pscl)
   library(survival)
   library(survminer)
+  library(lme4)
   library(finalfit)
 
 
@@ -2187,13 +2189,9 @@ theme(
 
   
 
-```
 
-# Gender analysis 
-```{r}
 
 ```
-
 
 # Laps2 Score
 
@@ -3297,6 +3295,7 @@ df_pf_ratio <- df_sf_ratio |>
 
 ## Mean airway pressure
 ```{r}
+
 clif_maip <- clif_respiratory_support |> filter(!is.na(mean_airway_pressure_obs)) |> select(clif_hospitalizations_joined_id, recorded_dttm, mean_airway_pressure_obs) |> 
     mutate(
     recorded_date = date(recorded_dttm),
@@ -3368,7 +3367,7 @@ death_or_hospice_01 <- clif_hospitalization |>   # make dead/hospice column
 
 ##Oxygenation index
 ```{r}
-df_oxygenation_index_analysis_prep <- df_hourly_resp_support |>
+df_oxygenation_index_analysis_prep2 <- df_hourly_resp_support |>
   mutate(vent_01 = fifelse(device_category %in% c("imv", "trach collar"), 1, 0)) |> 
   mutate(extubated_hour = fifelse(vent_01 == 0, 1, 0)) |> 
   mutate(recorded_dttm = ymd_h(paste(recorded_date, recorded_hour))) |> 
@@ -3410,19 +3409,29 @@ df_oxygenation_index_analysis_prep <- df_hourly_resp_support |>
 ```
 
 
-
 # Regression Analysis
 ```{r}
+# Count the number of encounters per hospital_id and assign "Hospital 1", "Hospital 2", etc.
+hospital_order <- df_oxygenation_index_analysis_prep %>%
+  count(hospital_id, name = "encounters") %>%
+  arrange(desc(encounters)) %>%
+  mutate(hospital_label = paste0("Hospital ", row_number()))
+
+
 first_intubation_data <- df_oxygenation_index_analysis_prep |>
   mutate(vent_hours_per_seq = difftime(last_vent_time, first_vent_time, units = "hours")) |>
   select(-sex_category) |> 
   left_join(clif_patient |> select(-hospitalization_id) |> distinct()) |> 
-  left_join(df_oxygenation_index |> select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, oxygenation_index, pf_ratio, sf_ratio) |> distinct()) |>
+  left_join(df_oxygenation_index |> select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, oxygenation_index) |> distinct()) |>
+  left_join(df_pf_ratio |> select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, pf_ratio) |> distinct()) |>
+  left_join(df_sf_ratio |> select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, sf_ratio) |> distinct()) |>
   left_join(df_laps2_scores |> select(clif_hospitalizations_joined_id, recorded_date, laps2) |> distinct()) |> 
   left_join(clif_hospitalization |> select(clif_hospitalizations_joined_id, age_at_admission, admission_dttm, discharge_dttm
                                            # admission_type_category
-                                           )) |> 
-
+                                           ) |> distinct()) |> 
+  left_join(hospital_order %>% select(hospital_id, hospital_label), by = "hospital_id") |> 
+  select(-hospital_id) |> 
+  rename(hospital_id = hospital_label) |> 
   # Filter data for the first intubation
   filter(vent_episode_id == 1)
 
@@ -3455,11 +3464,6 @@ model_data <- delta_oxygenation %>%
                         hospital_id = first(hospital_id)),
             by = "clif_hospitalizations_joined_id")
 
-# Count the number of encounters per hospital_id and assign "Hospital 1", "Hospital 2", etc.
-hospital_order <- model_data %>%
-  count(hospital_id, name = "encounters") %>%
-  arrange(desc(encounters)) %>%
-  mutate(hospital_label = paste0("Hospital ", row_number()))
 
 # Join the labeled hospitals back to your model_data
 model_data <- model_data %>%
@@ -3661,19 +3665,21 @@ for (var in variables) {
 ```{r}
 # Calculate the worst oxygenation index in the first 24 hours
 worst_in_24hr <- first_intubation_data %>%
-    filter(vent_episode_id == 1) |> 
+  filter(vent_episode_id == 1) |> 
   filter(vent_episode_hour_seq <=24) %>%
   group_by(clif_hospitalizations_joined_id) %>%
   summarise(
     worst_laps2_24hr = fmax(laps2, na.rm = TRUE),
     worst_sf_ratio = fmin(sf_ratio, na.rm = TRUE),
+    worst_pf_ratio = fmin(pf_ratio, na.rm = TRUE),
     max_hours_in_24 = fmax(vent_episode_hour_seq, na.rm = TRUE)
     ) |> 
   ungroup()
 
 htvv_step1 <- first_intubation_data |> 
   # 1 if high tidal volume, 0 otherwise
-  mutate(htvv = ifelse(tidal_volume_set > (6 * ibw), 1, 0)) |>  
+  mutate(htvv = ifelse(tidal_volume_set > (8 * ibw), 1, 0)) |>
+  mutate(vt_per_kg_ibw = tidal_volume_set / ibw) |>  
   # Cumulative hours while on first episode
   group_by(clif_hospitalizations_joined_id) %>%
   mutate(cumulative_htvv_hours = fcumsum(htvv * (vent_episode_id == 1), fill = TRUE)) |> 
@@ -3691,12 +3697,13 @@ htvv_step1 <- first_intubation_data |>
   mutate(event = within_48hr_death) |> 
   left_join(worst_in_24hr) |> 
   filter(!max_hours_in_24 < 24) |> 
-  # filter(hospital_id != "bethesda") |> 
-  distinct() |> 
-  filter(vent_episode_hour_seq < 1000)
-  
+  distinct()
+```
 
-
+### Death Within 48 hours. Cox PH
+```{r}
+########## Looking at death within 48 hours... 
+########## COX PH
 # Create the survival object
 survival_object_48hr <- with(htvv_step1, Surv(time = vent_episode_hour_seq, event = event))
 
@@ -3713,24 +3720,41 @@ plot(fit_mortality, main = "Survival Curve for Mortality", xlab = "Ventilation H
 
 cox.zph(cox_48hr)
 
-
+duration_filter <- 2000
 htvv_strata <- htvv_step1 %>%
+  ####################################################### FILTER out SUPER long ADMISSIONS
+  filter(vent_episode_duration_hours < duration_filter) |> 
+  
   group_by(clif_hospitalizations_joined_id) |> 
   mutate(max_cumulative_htvv_hours = fmax(cumulative_htvv_hours, na.rm = TRUE)) |> 
   ungroup() |> 
   distinct(clif_hospitalizations_joined_id, max_cumulative_htvv_hours) |> 
-  mutate(htvv_group = ntile(max_cumulative_htvv_hours, 4))  # Divide into 4 groups (quartiles)
+  
+  ### only keeping those with exposure
+  filter(max_cumulative_htvv_hours > 0) |> 
+  mutate(htvv_group = ntile(max_cumulative_htvv_hours, 4))  # Divide into 10 groups
 
-htvv_step1 <- htvv_step1 %>%
-  left_join(htvv_strata)
+htvv_step1_stata <- htvv_step1 %>%
+  filter(vent_episode_duration_hours < duration_filter) |> 
+  inner_join(htvv_strata)  # this will drop those with ZERO exposure because they are likely skewing things
 
 
 # Stratified survival curves by HTVV group
-fit_htvv <- survfit(coxph(Surv(vent_episode_hour_seq, event) ~ strata(htvv_group) + sex_category + hospital_id + worst_laps2_24hr + worst_sf_ratio, data = htvv_step1))
+fit_htvv <- survfit(coxph(Surv(vent_episode_hour_seq, event) ~ strata(htvv_group) + sex_category + hospital_id + worst_laps2_24hr + worst_sf_ratio, data = htvv_step1_stata))
 
 # Plot survival curves for different HTVV groups
 plot(fit_htvv, col = 1:4, lty = 1:4, main = "Effect of HTVV on Survival", xlab = "Ventilation Hours", ylab = "Survival Probability")
-legend("topright", legend = c("1st Quartile", "2nd Quartile", "3rd Quartile", "4th Quartile"), col = 1:4, lty = 1:4)
+legend("topright", legend = c("1st Quartile",
+                              "2nd Quartile",
+                              "3rd Quartile",
+                              "4th Quartile"
+                              # "5th Quartile",
+                              # "6th Quartile",
+                              # "7th Quartile",
+                              # "8th Quartile",
+                              # "9th Quartile",
+                              # "10th Quartile"
+                              ), col = 1:4, lty = 1:4)
 
 
 # Choose specific HTVV levels for plotting
@@ -3739,7 +3763,7 @@ htvv_levels <- c(10, 30, 90, 500, 1000)
 # Predict survival curves for specific HTVV levels
 new_data <- data.frame(cumulative_htvv_hours = htvv_levels,
                        sex_category = "male",  # Set other covariates (e.g., male)
-                       hospital_id = "ummc",  # Set a specific hospital
+                       hospital_id = "Hospital 1",  # Set a specific hospital
                        worst_laps2_24hr = mean(htvv_step1$worst_laps2_24hr, na.rm = TRUE),
                        worst_sf_ratio = mean(htvv_step1$worst_sf_ratio, na.rm = TRUE))
 
@@ -3754,7 +3778,109 @@ legend("topright", legend = paste("HTVV =", htvv_levels, "hours"), col = 1:5, lt
 ```
 
 
-# Analysis
+# Gender analysis 
+```{r}
+
+# Prepare the data (as before)
+htvv_analysis <- htvv_step1 %>%
+  select(
+    vt_per_kg_ibw,
+    sex_category,
+    age_at_admission,
+    laps2,
+    race_category,
+    hospital_id,
+    pf_ratio,
+    clif_hospitalizations_joined_id  # Patient ID
+  ) %>%
+  drop_na() %>%
+  mutate(
+    sex_category = as.factor(sex_category),
+    race_category = as.factor(race_category),
+    hospital_id = as.factor(hospital_id),
+    patient_id = as.factor(clif_hospitalizations_joined_id)  # Ensure patient_id is a factor
+  )
+
+# Summary statistics
+summary(htvv_analysis)
+
+# Check distribution of vt_per_kg_ibw
+hist(htvv_analysis$vt_per_kg_ibw, main = "Distribution of vt_per_kg_ibw", xlab = "vt_per_kg_ibw")
+
+# Fit the mixed-effects model with random intercepts for patients and hospitals
+mixed_model <- lmer(
+  vt_per_kg_ibw ~ sex_category + age_at_admission + laps2 + race_category + pf_ratio +
+    (1 | hospital_id) + (1 | patient_id),
+  data = htvv_analysis
+)
+summary(mixed_model)
+
+# Extract fixed effects coefficients with confidence intervals
+model_results <- tidy(mixed_model, effects = "fixed", conf.int = TRUE)
+
+# Get the sex difference
+sex_difference <- model_results %>%
+  filter(term == "sex_categorymale")
+
+print(sex_difference)
+
+# Plot residuals vs. fitted values
+plot(resid(mixed_model) ~ fitted(mixed_model), main = "Residuals vs Fitted Values")
+
+# QQ plot of residuals
+qqnorm(resid(mixed_model))
+qqline(resid(mixed_model))
+
+
+# Extract coefficients and confidence intervals
+mixed_model_results <- coef(summary(mixed_model))
+conf_intervals <- confint(mixed_model, method = "Wald")
+
+sex_difference_mixed <- data.frame(
+  Estimate = mixed_model_results["sex_categorymale", "Estimate"],
+  `Std. Error` = mixed_model_results["sex_categorymale", "Std. Error"],
+  `Lower CI` = conf_intervals["sex_categorymale", 1],
+  `Upper CI` = conf_intervals["sex_categorymale", 2],
+  `p-value` = mixed_model_results["sex_categorymale", "Pr(>|t|)"]
+)
+
+print(sex_difference_mixed)
+
+
+
+
+
+
+# Aggregate data to patient level
+patient_level_data <- htvv_step1 %>%
+  group_by(clif_hospitalizations_joined_id) %>%
+  summarise(
+    # Demographics (take first non-missing value)
+    sex_category = ffirst(sex_category),
+    age_at_admission = ffirst(age_at_admission),
+    race_category = ffirst(race_category),
+    hospital_id = ffirst(hospital_id),
+    
+    # Outcome variables
+    mortality_enc = first(na.omit(mortality_enc)),
+    
+    # Clinical scores (e.g., worst LAPS2 score)
+    max_laps2 = max(laps2, na.rm = TRUE),
+    
+    # Tidal volume summary statistics
+    mean_vt_per_kg_ibw = mean(vt_per_kg_ibw, na.rm = TRUE),
+    median_vt_per_kg_ibw = median(vt_per_kg_ibw, na.rm = TRUE),
+    max_vt_per_kg_ibw = max(vt_per_kg_ibw, na.rm = TRUE),
+    min_vt_per_kg_ibw = min(vt_per_kg_ibw, na.rm = TRUE),
+    
+    # Proportion of hours with high tidal volume (>8 mL/kg)
+    prop_high_vt = mean(vt_per_kg_ibw > 8, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+```
+
+
 ## OI Analysis
 ```{r}
 # OI_analysis <- df_oxygenation_index_analysis_prep |> 
@@ -3916,18 +4042,6 @@ legend("topright", legend = paste("HTVV =", htvv_levels, "hours"), col = 1:5, lt
 
 
 ```
-
-```{r}
-### 
-### 
-### 
-
-
-## cumulative hours of high tidal volume ventilation
-
-```
-
-# Analysis
 
 ## analysis 1
 propensity score match M/F on LAPS2, age, pf ratio
