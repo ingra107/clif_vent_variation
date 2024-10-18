@@ -697,7 +697,7 @@ clif_respiratory_support <- import_df("clif_respiratory_support") |>
         tidal_volume_obs,
         plateau_pressure_obs,
         peak_inspiratory_pressure_obs,
-        mean_airway_pressure_obs,
+        starts_with("mean_airway_pressure"),  # in case ppl don't have this yet.. prevents from breaking
         # peep_obs, # not used and not in adult set 
         minute_vent_obs,
         tracheostomy)
@@ -713,6 +713,20 @@ clif_adt <- import_df("clif_adt") |>
         in_dttm,
         out_dttm,
         hospital_id)
+
+
+# Count the number of encounters per hospital_id and assign "Hospital 1", "Hospital 2", etc.
+hospital_order <- clif_adt %>%
+  count(hospital_id, name = "encounters") %>%
+  arrange(desc(encounters)) %>%
+  mutate(hospital_label = paste0("Hospital ", site_name," ", row_number()))
+
+clif_adt <- clif_adt |> 
+  left_join(hospital_order %>% select(hospital_id, hospital_label), by = "hospital_id") |> 
+  select(-hospital_id) |> 
+  rename(hospital_id = hospital_label) 
+  
+  
 
 # Vitals to merge with patient so we can get BMI, height, spo2 information
 clif_vitals <- import_df("clif_vitals") |> 
@@ -879,10 +893,22 @@ ni_tic()
 df_resp_support_1  <- clif_respiratory_support |> 
   select(clif_hospitalizations_joined_id, hospitalization_id, recorded_dttm, device_category, device_name, mode_category, mode_name, 
          fio2_set, lpm_set, tidal_volume_set, peep_set,  pressure_support_set, resp_rate_set, tracheostomy, 
-         tidal_volume_obs, peak_inspiratory_pressure_obs, minute_vent_obs, plateau_pressure_obs, mean_airway_pressure_obs 
-  ) |>
+         tidal_volume_obs, peak_inspiratory_pressure_obs, minute_vent_obs, plateau_pressure_obs, starts_with("mean_airway_pressure_obs") 
+  )
+
+if ("mean_airway_pressure_obs" %in% names(df_resp_support_1)){
+  df_resp_support_1 <- df_resp_support_1 |> 
+    mutate(
+          
+    # mean_airway_pressure_obs
+    mean_airway_pressure_obs = fcase(mean_airway_pressure_obs > 60, NA_real_, rep_len(TRUE, length(mean_airway_pressure_obs)), mean_airway_pressure_obs),
+    mean_airway_pressure_obs = fcase(mean_airway_pressure_obs <  0, NA_real_, rep_len(TRUE, length(mean_airway_pressure_obs)), mean_airway_pressure_obs)
+    
+    )
+  print("QC for MAIRP done!!")
+}
   
-  # filter is recorded_dttm missing
+  
   mutate(
     # fio2_set
     fio2_set = fcase(fio2_set > 100, NA_real_, rep_len(TRUE, length(fio2_set)), fio2_set),
@@ -915,10 +941,7 @@ df_resp_support_1  <- clif_respiratory_support |>
     # minute_vent_obs
     minute_vent_obs = fcase(minute_vent_obs > 30, NA_real_, rep_len(TRUE, length(minute_vent_obs)), minute_vent_obs),
     minute_vent_obs = fcase(minute_vent_obs <  0, NA_real_, rep_len(TRUE, length(minute_vent_obs)), minute_vent_obs),
-    
-    # mean_airway_pressure_obs
-    mean_airway_pressure_obs = fcase(mean_airway_pressure_obs > 60, NA_real_, rep_len(TRUE, length(mean_airway_pressure_obs)), mean_airway_pressure_obs),
-    mean_airway_pressure_obs = fcase(mean_airway_pressure_obs <  0, NA_real_, rep_len(TRUE, length(mean_airway_pressure_obs)), mean_airway_pressure_obs),
+
     
     ) |>
   
@@ -1260,7 +1283,7 @@ df_resp_support <- df_resp_support_1 |>
     pressure_support_set,
     resp_rate_set,
     tidal_volume_obs,
-    mean_airway_pressure_obs,
+    starts_with("mean_airway_pressure_obs"),
     peak_inspiratory_pressure_obs,
     plateau_pressure_obs,
     # obs_resp_rate,
@@ -1662,7 +1685,7 @@ df_hourly_resp_support2 <- df_hourly_resp_support1 |>
   pressure_support_set,
   resp_rate_set,
   tidal_volume_obs,
-  mean_airway_pressure_obs,
+  starts_with("mean_airway_pressure_obs"),
   peak_inspiratory_pressure_obs,
   plateau_pressure_obs,
   # obs_resp_rate,
@@ -1739,11 +1762,19 @@ df_hourly_resp_support <- df_hourly_resp_support2 |>
 # duplicate check
 # df_hourly_resp_support |> group_by(pick(colnames(df_hourly_resp_support))) |> filter(n() > 1) 
 
+
+
+
 write_parquet(df_hourly_resp_support, paste0("output/intermediate/df_hourly_resp_support_", Sys.Date(), ".parquet"))
 
 # saving system date today
 most_recent_save_hourly <- Sys.Date()
 save(most_recent_save_hourly, file = "output/intermediate/most_recent_save.Rdata")
+
+
+hosp_id_count <- df_hourly_resp_support |> count(hospital_id) |> nrow()
+
+
 
 ```
 
@@ -1809,7 +1840,7 @@ test_mode <- mode_hourly_resp_support_table |>
   uncount(n) 
 
 ### A FINAL TABLE
-write_parquet(mode_hourly_resp_support_table, paste0("output/final/mode_hourly_resp_support_table_",site_name,".parquet"))
+write.csv(mode_hourly_resp_support_table, paste0("output/final/mode_hourly_resp_support_table_",site_name, "_",Sys.date(),".csv"))
 
 ```
 
@@ -1857,76 +1888,79 @@ ggplot(
 
 ```
 
+
+
 ## Fig 2 Trach Variation --> Estimated Day of ventilation of Trach placement by hospitals
 
-```{r}
 
-# clean up trach days
- trach_variation <- df_hourly_resp_support |> 
-  filter(!is.na(vent_days_before_trach)) |> 
-  select(clif_hospitalizations_joined_id, trach_hospital_id, vent_days_before_trach) |> 
-  ungroup() |>
-  distinct()
+<!-- ```{r} -->
 
-
-trach_variation_table <- trach_variation |>
-  count(trach_hospital_id, vent_days_before_trach) |> 
-  mutate(health_system = site_name)
-  
-test_trach <- trach_variation_table |> 
-  uncount(n) 
-
-write_parquet(trach_variation_table, paste0("output/final/trach_variation_table_",site_name,".parquet"))
-
-```
+<!-- # clean up trach days -->
+<!--  trach_variation <- df_hourly_resp_support |>  -->
+<!--   filter(!is.na(vent_days_before_trach)) |>  -->
+<!--   select(clif_hospitalizations_joined_id, trach_hospital_id, vent_days_before_trach) |>  -->
+<!--   ungroup() |> -->
+<!--   distinct() -->
 
 
-```{r}
+<!-- trach_variation_table <- trach_variation |> -->
+<!--   count(trach_hospital_id, vent_days_before_trach) |>  -->
+<!--   mutate(health_system = site_name) -->
 
-# Nick will run the below on the table you saved with all data together
-# ... so no need to save the graph
-# Left the code  so you can explore your own data
-# 
+<!-- test_trach <- trach_variation_table |>  -->
+<!--   uncount(n)  -->
 
-trach_excl_early_trach <- trach_variation |> 
-  group_by(trach_hospital_id) |> 
-  mutate(mean_vent_days_before_trach = median(vent_days_before_trach, na.rm = TRUE)) |> 
-  # these are early trach... take them out
-  filter(vent_days_before_trach > 3) |>
-  # these are ltachs
-  filter(mean_vent_days_before_trach >5)
+<!-- write_csv(trach_variation_table, paste0("output/final/trach_variation_table_",site_name,"_",Sys.Date(),".csv")) -->
 
-# Create a boxplot
-ggplot(trach_excl_early_trach, aes(x = trach_hospital_id, y = vent_days_before_trach)) +
-  geom_boxplot() +
-  labs(title = "Variation in Tracheostomy Ventilator Day Across Hospitals",
-       x = "Hospital",
-       y = "Ventilator Day for Tracheostomy")
+<!-- ``` -->
 
 
-# Create a violin plot
-ggplot(trach_variation, aes(x = trach_hospital_id, y = vent_days_before_trach)) +
-  geom_violin() +
-  labs(title = "Variation in Tracheostomy Ventilator Day Across Hospitals",
-       x = "Hospital",
-       y = "Ventilator Day for Tracheostomy")
+<!-- ```{r} -->
+
+<!-- # Nick will run the below on the table you saved with all data together -->
+<!-- # ... so no need to save the graph -->
+<!-- # Left the code  so you can explore your own data -->
+<!-- #  -->
+
+<!-- trach_excl_early_trach <- trach_variation |>  -->
+<!--   group_by(trach_hospital_id) |>  -->
+<!--   mutate(mean_vent_days_before_trach = median(vent_days_before_trach, na.rm = TRUE)) |>  -->
+<!--   # these are early trach... take them out -->
+<!--   filter(vent_days_before_trach > 3) |> -->
+<!--   # these are ltachs -->
+<!--   filter(mean_vent_days_before_trach >5) -->
+
+<!-- # Create a boxplot -->
+<!-- ggplot(trach_excl_early_trach, aes(x = trach_hospital_id, y = vent_days_before_trach)) + -->
+<!--   geom_boxplot() + -->
+<!--   labs(title = "Variation in Tracheostomy Ventilator Day Across Hospitals", -->
+<!--        x = "Hospital", -->
+<!--        y = "Ventilator Day for Tracheostomy") -->
 
 
-ggplot(trach_variation, aes(x = trach_hospital_id, y = vent_days_before_trach, fill = factor(trach_hospital_id))) +
-  # geom_boxplot(width = 0.1, fill = "white", outlier.shape = NA) + # Hide outliers for the boxplot
-  # geom_jitter(width = 0.2, size = 1.5, alpha = 0.4) +
-  geom_violin(adjust = 2) +
-  labs(title = "Variation in Tracheostomy Ventilator Day Across Hospitals",
-       x = "Hospital",
-       y = "Ventilator Day for Tracheostomy") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  # theme_light() +
-  guides(fill = guide_legend(title = "Hospital ID"))
+<!-- # Create a violin plot -->
+<!-- ggplot(trach_variation, aes(x = trach_hospital_id, y = vent_days_before_trach)) + -->
+<!--   geom_violin() + -->
+<!--   labs(title = "Variation in Tracheostomy Ventilator Day Across Hospitals", -->
+<!--        x = "Hospital", -->
+<!--        y = "Ventilator Day for Tracheostomy") -->
 
 
-# trach_variation |> filter(vent_days_before_trach > 30) |> View()
+<!-- ggplot(trach_variation, aes(x = trach_hospital_id, y = vent_days_before_trach, fill = factor(trach_hospital_id))) + -->
+<!--   # geom_boxplot(width = 0.1, fill = "white", outlier.shape = NA) + # Hide outliers for the boxplot -->
+<!--   # geom_jitter(width = 0.2, size = 1.5, alpha = 0.4) + -->
+<!--   geom_violin(adjust = 2) + -->
+<!--   labs(title = "Variation in Tracheostomy Ventilator Day Across Hospitals", -->
+<!--        x = "Hospital", -->
+<!--        y = "Ventilator Day for Tracheostomy") + -->
+<!--   theme(axis.text.x = element_text(angle = 45, hjust = 1)) + -->
+<!--   # theme_light() + -->
+<!--   guides(fill = guide_legend(title = "Hospital ID")) -->
 
-```
+
+<!-- # trach_variation |> filter(vent_days_before_trach > 30) |> View() -->
+
+<!-- ``` -->
 
 
 ## Fig 3 Initial Set Volume / ibw Variation 
@@ -1977,7 +2011,7 @@ test_ltvv <- ltvv_variation_table |>
   uncount(n) 
 
 ### A FINAL TABLE
-write_parquet(ltvv_variation_table, paste0("output/final/ltvv_variation_table_",site_name,".parquet"))
+write.csv(ltvv_variation_table, paste0("output/final/ltvv_variation_table_",site_name,"_", Sys.Date(),".csv"))
 ```
 
 
@@ -2061,7 +2095,6 @@ clif_demographics_table_start <- df_hourly_resp_support |>
   # fix forward slashes in hospital
   mutate(hospital_id = str_replace(hospital_id, "/", " ")) |> 
   filter(sex_category %in% c("male", "female"))  |> 
-  rename(age = age_at_admission) |> 
   mutate(race_category = fifelse(race_category == "unknown", "other", race_category)) |> 
   mutate(death = as.integer(grepl("dead|expired|death|died", discharge_category, ignore.case = TRUE))) |> 
   mutate(
@@ -2085,62 +2118,62 @@ clif_demographics_table_start <- df_hourly_resp_support |>
   
   # getting max trach for encounter
   group_by(clif_hospitalizations_joined_id) |> 
-  mutate(tracheostomy = fmax(tracheostomy, na.rm = TRUE)) |> 
-  mutate(tracheostomy = fifelse(tracheostomy == 1, 1, 0, 0)) |> 
+  # mutate(tracheostomy = fmax(tracheostomy, na.rm = TRUE)) |> 
+  # mutate(tracheostomy = fifelse(tracheostomy == 1, 1, 0, 0)) |> 
   ungroup() |> 
   distinct() |> 
   mutate(across(where(is.character), str_to_title)) |> 
   mutate(across(where(is.character), as.factor))
 
-hospitals <- clif_demographics_table_start |> select(hospital_id) |> distinct() |> pull()
+# hospitals <- clif_demographics_table_start |> select(hospital_id) |> distinct() |> pull()
+# 
+# for (hosp in hospitals) {
+#   clif_demographics_table_start_hosp <- clif_demographics_table_start |> filter(hospital_id == hosp)
+#   # HTML content (make sure your actual HTML string is correctly input here)
+#   html_content <- table1(~ age + sex_category + race_category + ethnicity_category + death + vent_episode_hospital_duration_hours, data = clif_demographics_table_start_hosp)
+#   
+#   # Use rvest to read the HTML table
+#   table <- read_html(html_content) %>%
+#     html_table(fill = TRUE)
+#   
+#   # The first element of the list should be your table
+#   df <- table[[1]]
+#   
+#   # Rename 'Overall(N=14598)' to 'fabc(N=14598)' using the site variable
+#   names(df) <- gsub("Overall\\(N=(\\d+)\\)", paste0(hosp, ' ', "(N=\\1)"), names(df))
+#   write.csv(df, paste0("output/intermediate/table1_", hosp, '.csv'), row.names = FALSE)
+#   
+# }
 
-for (hosp in hospitals) {
-  clif_demographics_table_start_hosp <- clif_demographics_table_start |> filter(hospital_id == hosp)
-  # HTML content (make sure your actual HTML string is correctly input here)
-  html_content <- table1(~ age + sex_category + race_category + ethnicity_category + death + tracheostomy + vent_episode_hospital_duration_hours, data = clif_demographics_table_start_hosp)
-  
-  # Use rvest to read the HTML table
-  table <- read_html(html_content) %>%
-    html_table(fill = TRUE)
-  
-  # The first element of the list should be your table
-  df <- table[[1]]
-  
-  # Rename 'Overall(N=14598)' to 'fabc(N=14598)' using the site variable
-  names(df) <- gsub("Overall\\(N=(\\d+)\\)", paste0(hosp, ' ', "(N=\\1)"), names(df))
-  write.csv(df, paste0("output/intermediate/table1_", hosp, '.csv'), row.names = FALSE)
-  
-}
 
-# 
-# 
-# table_summary <- clif_demographics_table_start |> 
-#   group_by(hospital_id) |> 
-#   summarise(N = n(), 
-#             Age               = clif_mean_r(age_at_admission),
-#             "Sex, female"     = clif_counts(sex_category == "female"),
-#             Race              = "",
-#             Black             = paste0("  ", clif_counts(race_category == "black or african-american")),
-#             White             = paste0("  ", clif_counts(race_category == "white")),
-#             Asian             = paste0("  ", clif_counts(race_category == "asian")),
-#             Other             = paste0("  ", clif_counts(!race_category %in% c("black or african-american", "white", "asian"))),
-#             "Ethnicity, Hispanic"   = clif_counts(ethnicity_category == "hispanic"),
-#             
-#             "Ventilator Days" = clif_med(vent_episode_hospital_duration_hours/24),
-#             "Mortality"       = clif_counts(death)
-#   ) |> 
-#   mutate(hospital_id = str_to_title(hospital_id)) |> 
-#   rename(Hospital = hospital_id)
-# 
-# 
-# characteristics <- colnames(table_summary)
-# # table_summary <- as.data.frame(t(table_summary))
-# # characteristics
-# 
-# # leaving it without transposing it yet
-# table_summary
-# write_parquet(table_summary, paste0("tables/hospital_table_summary_",site_name,".parquet"))
 
+table_summary <- clif_demographics_table_start |>
+  group_by(hospital_id) |>
+  summarise(N = n(),
+            Age               = clif_mean_r(age_at_admission),
+            "Sex, Female"     = clif_counts(tolower(sex_category) == "female"),
+            Race              = "",
+            Black             = paste0("  ", clif_counts(race_f == "Black")),
+            White             = paste0("  ", clif_counts(race_f == "White")),
+            Asian             = paste0("  ", clif_counts(race_f == "Asian")),
+            Other             = paste0("  ", clif_counts(race_f == "Other")),
+            "Ethnicity, Hispanic"   = clif_counts(ethnicity_f == "Hispanic"),
+
+            "Ventilator Days" = clif_med(vent_episode_hospital_duration_hours/24),
+            "Mortality"       = clif_counts(death)
+  ) |>
+  mutate(hospital_id = str_to_title(hospital_id)) |>
+  rename(Hospital = hospital_id)
+
+
+characteristics <- colnames(table_summary)
+# table_summary <- as.data.frame(t(table_summary))
+# characteristics
+
+# leaving it without transposing it yet
+table_summary
+
+write.csv(table_summary, paste0("output/final/hospital_table1_summary_", site_name,"_", Sys.Date(),".csv"), row.names = FALSE)
 
 ```
 
@@ -2153,15 +2186,75 @@ ltvv_female <- ltvv_variation |>
   left_join(clif_demographics_combined |> select(sex_category, clif_hospitalizations_joined_id) |> distinct()) |> 
   filter(!sex_category == "unknown") 
 
+
+ltvv_female_table <- ltvv_female |> 
+  count(hospital_id, sex_category, vt_bin) |> 
+  mutate(health_system = site_name)
+
+test_ltvv_female_table <- ltvv_female_table |> 
+  uncount(n) 
+
+### A FINAL TABLE
+write.csv(ltvv_female_table, paste0("output/final/ltvv_female_table_",site_name,"_", Sys.Date(),".csv"))
   
-ltvv_variation |> 
+
+
+
+###### I will make this table with everyones data
+summary_data <- ltvv_female_table %>%
+    filter(hospital_id %in% icu_hosp_ranks_8cc) |> 
+  mutate(hospital_id = factor(hospital_id, levels = rev(icu_hosp_ranks_8cc))) |> 
+  group_by(hospital_id, sex_category) %>%
+  mutate(
+    total_n = sum(n),
+    proportion = n / total_n
+  ) %>%
+  ungroup()
+
+
+# Define a custom color palette
+custom_colors <- c(
+  "4-5 cc/kg" = "green",
+  "5-6 cc/kg" = "lightgreen",
+  "6-7 cc/kg" = "lightgreen",
+  "7-8 cc/kg" = "lightblue",
+  "8-9 cc/kg" = "yellow",       # Highlight this bin
+  "9-10 cc/kg" = "orange",         # Higher than 8-9 cc/kg
+  "10-11 cc/kg" = "red",
+  "11-12 cc/kg" = "red",
+  ">= 12 cc/kg" = "darkred"     # Highest category
+)
+
+
+# Proportional bar chart
+ggplot(summary_data, aes(x = proportion, y = hospital_id, fill = vt_bin)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ sex_category) +
+  labs(
+    title = "Proportion of Tidal Volume Categories by Hospital and Sex",
+    x = "Hospital",
+    y = "Proportion",
+    fill = "Tidal Volume Category"
+  ) +
+  scale_fill_manual(values = custom_colors) +  # Apply the custom color palette
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),  # Angle x-axis labels for better readability
+    legend.title = element_text(size = 10, face = "bold"),
+    plot.title = element_text(size = 14, face = "bold"),
+    legend.position = "top"
+  ) 
+
+
+# Violin plot for your own viewing
+
+ltvv_variation |>
   filter(hospital_id %in% icu_hosp_ranks_8cc) |> 
   mutate(hospital_id = factor(hospital_id, levels = rev(icu_hosp_ranks_8cc), labels = rev(str_to_title(icu_hosp_ranks_8cc)))) |> 
   mutate(sex_category = factor(sex_category,
                       levels = c("male", "female"),
                       labels = c("Male", "Female"))) |> 
-  filter(vt_cckg<15) |> 
-  
+  filter(vt_cckg < 15) |> 
   ggplot(aes(x = hospital_id, y = vt_cckg, fill = sex_category )) + 
   # bw options c("nrd0", "nrd", "ucv", "bcv", "SJ-ste", "SJ-dpi"),
     geom_violin(position="dodge", bw = "bcv", alpha=0.4, trim = TRUE, scale = "width", draw_quantiles = c(0.5)) +
@@ -2188,8 +2281,6 @@ theme(
 )
 
   
-
-
 
 ```
 
@@ -3295,7 +3386,9 @@ df_pf_ratio <- df_sf_ratio |>
 
 ## Mean airway pressure
 ```{r}
-
+if ("mean_airway_pressure_obs" %in% names(df_resp_support_1)){
+  
+  
 clif_maip <- clif_respiratory_support |> filter(!is.na(mean_airway_pressure_obs)) |> select(clif_hospitalizations_joined_id, recorded_dttm, mean_airway_pressure_obs) |> 
     mutate(
     recorded_date = date(recorded_dttm),
@@ -3352,7 +3445,7 @@ df_oxygenation_index <- df_pf_ratio |>
   filter(oxygenation_index < 100 ) |> 
   select(-recorded_dttm, -time_variation) |> 
   distinct()
-
+}
 
 death_or_hospice_01 <- clif_hospitalization |>   # make dead/hospice column
   mutate(
@@ -3411,29 +3504,28 @@ df_oxygenation_index_analysis_prep2 <- df_hourly_resp_support |>
 
 # Regression Analysis
 ```{r}
-# Count the number of encounters per hospital_id and assign "Hospital 1", "Hospital 2", etc.
-hospital_order <- df_oxygenation_index_analysis_prep %>%
-  count(hospital_id, name = "encounters") %>%
-  arrange(desc(encounters)) %>%
-  mutate(hospital_label = paste0("Hospital ", row_number()))
-
 
 first_intubation_data <- df_oxygenation_index_analysis_prep |>
   mutate(vent_hours_per_seq = difftime(last_vent_time, first_vent_time, units = "hours")) |>
   select(-sex_category) |> 
   left_join(clif_patient |> select(-hospitalization_id) |> distinct()) |> 
-  left_join(df_oxygenation_index |> select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, oxygenation_index) |> distinct()) |>
   left_join(df_pf_ratio |> select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, pf_ratio) |> distinct()) |>
   left_join(df_sf_ratio |> select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, sf_ratio) |> distinct()) |>
   left_join(df_laps2_scores |> select(clif_hospitalizations_joined_id, recorded_date, laps2) |> distinct()) |> 
   left_join(clif_hospitalization |> select(clif_hospitalizations_joined_id, age_at_admission, admission_dttm, discharge_dttm
                                            # admission_type_category
                                            ) |> distinct()) |> 
-  left_join(hospital_order %>% select(hospital_id, hospital_label), by = "hospital_id") |> 
-  select(-hospital_id) |> 
-  rename(hospital_id = hospital_label) |> 
+
   # Filter data for the first intubation
   filter(vent_episode_id == 1)
+```
+
+## oxygenation index stuff
+```{r}
+
+if ("mean_airway_pressure_obs" %in% names(df_resp_support_1)){
+first_intubation_data <- first_intubation_data |> 
+  left_join(df_oxygenation_index |> select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, oxygenation_index) |> distinct())
 
 # Calculate the worst oxygenation index in the first 24 hours
 worst_oxygenation_24hr <- first_intubation_data %>%
@@ -3469,6 +3561,7 @@ model_data <- delta_oxygenation %>%
 model_data <- model_data %>%
   left_join(hospital_order %>% select(hospital_id, hospital_label), by = "hospital_id")
 
+}
 
 
 # 
@@ -3593,11 +3686,18 @@ run_analysis_for_variable_finalfit <- function(var_name, interaction_term = FALS
     mutate(hospital_id = hospital_label)
   
   
+  
   # Prepare the finalfit input: dependent and explanatory variables
   dependent <- "mortality_enc"
   
   explanatory <- c("worst_24hr", "delta_var", "age_at_admission", "sex_category", 
-                   "race_category", "hospital_id")
+                   "race_category")
+  
+  if (hosp_id_count > 1) {
+    explanatory <- c("worst_24hr", "delta_var", "age_at_admission", "sex_category", 
+                     "race_category", "hospital_id")
+  }
+  
   
   if (interaction_term) {
     explanatory <- c("worst_24hr*delta_var", explanatory[-c(1, 2)])  # Add interaction term
@@ -3641,15 +3741,21 @@ run_analysis_for_variable_finalfit <- function(var_name, interaction_term = FALS
             dependent_label = paste("Outcome: Mortality", var_name)) 
   
   # Display and save the plot
-   print(or_plot)
-
+  print(or_plot)
+  
   ggsave(paste0("output/intermediate/forest_plot_finalfit_", var_name, "_", suffix, ".png"), plot = or_plot)
   
   return(fit)
 }
 
 # Run the analysis for each variable (oxygenation_index, pf_ratio, sf_ratio, laps2)
-variables <- c("oxygenation_index", "pf_ratio", "sf_ratio", "laps2")
+
+variables <- c("pf_ratio", "sf_ratio", "laps2")
+
+if ("mean_airway_pressure_obs" %in% names(df_resp_support_1)){
+  variables <- c("oxygenation_index", "pf_ratio", "sf_ratio", "laps2")
+}
+
 
 for (var in variables) {
   # Without interaction
@@ -3657,7 +3763,9 @@ for (var in variables) {
   
   # # With interaction
   # run_analysis_for_variable_finalfit(var, interaction_term = TRUE)
+  
 }
+
 ```
 
 
@@ -3673,7 +3781,7 @@ worst_in_24hr <- first_intubation_data %>%
     worst_sf_ratio = fmin(sf_ratio, na.rm = TRUE),
     worst_pf_ratio = fmin(pf_ratio, na.rm = TRUE),
     max_hours_in_24 = fmax(vent_episode_hour_seq, na.rm = TRUE)
-    ) |> 
+  ) |> 
   ungroup()
 
 htvv_step1 <- first_intubation_data |> 
@@ -3698,6 +3806,8 @@ htvv_step1 <- first_intubation_data |>
   left_join(worst_in_24hr) |> 
   filter(!max_hours_in_24 < 24) |> 
   distinct()
+
+
 ```
 
 ### Death Within 48 hours. Cox PH
@@ -3813,43 +3923,49 @@ mixed_model <- lmer(
     (1 | hospital_id) + (1 | patient_id),
   data = htvv_analysis
 )
-summary(mixed_model)
 
-# Extract fixed effects coefficients with confidence intervals
+summary(mixed_model)
+# Tidy the mixed model results
 model_results <- tidy(mixed_model, effects = "fixed", conf.int = TRUE)
 
-# Get the sex difference
-sex_difference <- model_results %>%
-  filter(term == "sex_categorymale")
+# View the results
+print(model_results)
 
-print(sex_difference)
+# Select relevant columns and rename them
+results_to_save <- model_results %>%
+  select(
+    Variable = term,
+    Estimate = estimate,
+    StdError = std.error,
+    LowerCI = conf.low,
+    UpperCI = conf.high,
+    DegreesFreedom = df,
+    Statistic = statistic,
+    PValue = p.value
+  ) |> 
+# Add StudyID and Model columns
+  mutate(
+    StudyID = "sex_category_ltvv",  # Replace with your actual Study ID
+    Model = "MixedEffectsModel",
+    Site = site_name
+  ) |> 
 
-# Plot residuals vs. fitted values
-plot(resid(mixed_model) ~ fitted(mixed_model), main = "Residuals vs Fitted Values")
+# Rearrange columns
+  select(
+    StudyID,
+    Model,
+    Site,
+    Variable,
+    Estimate,
+    StdError,
+    LowerCI,
+    UpperCI,
+    DegreesFreedom,
+    Statistic,
+    PValue
+  )
 
-# QQ plot of residuals
-qqnorm(resid(mixed_model))
-qqline(resid(mixed_model))
-
-
-# Extract coefficients and confidence intervals
-mixed_model_results <- coef(summary(mixed_model))
-conf_intervals <- confint(mixed_model, method = "Wald")
-
-sex_difference_mixed <- data.frame(
-  Estimate = mixed_model_results["sex_categorymale", "Estimate"],
-  `Std. Error` = mixed_model_results["sex_categorymale", "Std. Error"],
-  `Lower CI` = conf_intervals["sex_categorymale", 1],
-  `Upper CI` = conf_intervals["sex_categorymale", 2],
-  `p-value` = mixed_model_results["sex_categorymale", "Pr(>|t|)"]
-)
-
-print(sex_difference_mixed)
-
-
-
-
-
+write.csv()
 
 # Aggregate data to patient level
 patient_level_data <- htvv_step1 %>%
