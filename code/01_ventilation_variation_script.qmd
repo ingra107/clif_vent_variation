@@ -36,7 +36,7 @@ editor_options:
 # renv::install("BiocManager")
 # BiocManager::install("IRanges")
 # 
-# # renv::install(c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "pandoc", "janitor", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survminer", "gt", "gtsummary", "broom.helpers", "broom.mixed", "lme4", ""lmerTest"))
+# # renv::install(c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "writexl", "DBI", "dbplyr", "knitr", "pandoc", "janitor", "data.table", "duckdb" ,"powerjoin", "collapse", "tidyfast", "datapasta", "fst", "dtplyr", "bit64", "zoo", "fuzzyjoin", "arrow", "hrbrthemes", "here", "table1", "rvest", "tidymodels", "pscl", "survminer", "gt", "gtsummary", "broom.helpers", "broom.mixed", "lme4", "lmerTest", "merTools"))
 # 
 #  
 # 
@@ -83,6 +83,7 @@ editor_options:
   library(pscl)
   library(survival)
   library(survminer)
+  library(merTools)
   library(lme4)
   library(finalfit)
 
@@ -356,13 +357,13 @@ end_date <- "2021-12-31"
 #~~ using readr or fst or arrow (parquet) package depending on the file type. (THESE WERE SET DURING SET UP ^^ )
 clif_respiratory_support_start <- 
   read_data("clif_respiratory_support") |> 
-  select(hospitalization_id, device_category, tracheostomy, recorded_dttm) |> 
+  dplyr::select(hospitalization_id, device_category, tracheostomy, recorded_dttm) |> 
 # Just getting those ventilated or trach
   filter(str_to_lower(device_category) == "imv" | tracheostomy == 1) 
     
 clif_hospitalization_start <- 
   read_data("clif_hospitalization") |> 
-  select(hospitalization_id, admission_dttm, discharge_dttm, age_at_admission, patient_id, 
+  dplyr::select(hospitalization_id, admission_dttm, discharge_dttm, age_at_admission, patient_id, 
          # admission_type_name, 
          # admission_type_category, 
          discharge_name, discharge_category)
@@ -386,7 +387,7 @@ df_cohort_keep_start <- clif_respiratory_support_start |>
 # missing data exclusion
     !is.na(age_at_admission)
     ) |>  
-  select(patient_id) |> 
+  dplyr::select(patient_id) |> 
   distinct()
 
 
@@ -405,7 +406,7 @@ clif_hospitalization_start <- clif_hospitalization_start |>
 #Create an Hospital Block ID - This is to Identify Continuous Hospitalizations When Patients Are Transferred Between Hospitals in One Health System
 #This code is intended be robust to various ways encounters may be coded in CLIF databases
 hospital_blocks <- clif_hospitalization_start |> 
-  select(patient_id, hospitalization_id, admission_dttm, discharge_dttm) |>
+  dplyr::select(patient_id, hospitalization_id, admission_dttm, discharge_dttm) |>
   arrange(patient_id, admission_dttm) |>
   collect()
 
@@ -436,14 +437,14 @@ temp <- as_tibble(linked_encounters) |>
   group_by(patient_id) |>
   mutate(link_group=row_number()) |>
   ungroup() |>
-  select(hospitalization_id, link_group) 
+  dplyr::select(hospitalization_id, link_group) 
 linked_encounters <- as_tibble(left_join(linked_encounters, temp)) |>
   fill(link_group, .direction = c("down")) |>
   #Create a Variable Indicating Which Number of LIinked Encounter the Encounter is
   group_by(patient_id, link_group) |>
   mutate(link_number=row_number()) |>
   ungroup() |>
-  select(hospitalization_id, linked, link_number)
+  dplyr::select(hospitalization_id, linked, link_number)
 rm(temp)
 
 #Now Join Back to Hospitalization Table
@@ -492,7 +493,7 @@ clif_hospitalization <- clif_hospitalization_start |>
   mutate(clif_hospitalizations_joined_id = cur_group_id()) |> 
   fill(starts_with("final_"), .direction = 'updown') |>
   
-  select(
+  dplyr::select(
     clif_hospitalizations_joined_id,
     hospitalization_id,
     patient_id,
@@ -515,6 +516,14 @@ clif_hospitalization <- clif_hospitalization_start |>
 
 ### Final cohorting with fixed clif_hospitalizations_joined_id
 ```{r}
+
+clif_patient_start <-  read_data("clif_patient") |> 
+  dplyr::select(patient_id, sex_category) |> 
+  filter(str_detect(str_to_lower(sex_category), "male|female")) |> 
+  dplyr::select(patient_id) |> 
+  distinct()
+
+
 # need to get the joined encounters taht we need to keep... then we will make a final keep with 
 #     clif_hospitalizations_joined_id, hospitalization_id, patient_id
 df_cohort_keep_encounters <- 
@@ -525,6 +534,7 @@ df_cohort_keep_encounters <-
 # Getting hospitaliaztion_ids and such with new variables made above
 # Exclusion based on date
   left_join(clif_hospitalization) |>
+  inner_join(clif_patient_start) |> 
   filter(
     lubridate::date(admission_dttm) >= start_date,
     lubridate::date(admission_dttm) <= end_date,
@@ -534,15 +544,15 @@ df_cohort_keep_encounters <-
     !is.na(age_at_admission)
     ) |>  
 # these are JUST hospitalizations with imv or trach... we are using this to ID the joined_ids that we need to keep
-  inner_join(clif_respiratory_support_start |> select(hospitalization_id) |> distinct()) |> 
-  select(clif_hospitalizations_joined_id) |> 
+  inner_join(clif_respiratory_support_start |> dplyr::select(hospitalization_id) |> distinct()) |> 
+  dplyr::select(clif_hospitalizations_joined_id) |> 
   distinct()
 
 df_cohort_keep <- clif_hospitalization |> 
   inner_join(df_cohort_keep_encounters) |> 
   mutate(patient_id = as.character(patient_id)) |> 
   mutate(hospitalization_id = as.character(hospitalization_id)) |> 
-  select(clif_hospitalizations_joined_id, hospitalization_id, patient_id) |> 
+  dplyr::select(clif_hospitalizations_joined_id, hospitalization_id, patient_id) |> 
   distinct()
   
 
@@ -677,7 +687,7 @@ df_start_objects <- grep("_start$", all_objects, value = TRUE)
 clif_respiratory_support <- import_df("clif_respiratory_support") |> 
       # Check if Variables match!!
       # You will get an error if you do not have all the relevant variables needed
-      select(
+      dplyr::select(
         clif_hospitalizations_joined_id, hospitalization_id,
         recorded_dttm,
         device_name,
@@ -706,7 +716,7 @@ clif_respiratory_support <- import_df("clif_respiratory_support") |>
 # ADT File to merge with patient so we can get hospital ID
 clif_adt <- import_df("clif_adt") |> 
       # Check if Variables match!!
-      select(
+      dplyr::select(
         clif_hospitalizations_joined_id, hospitalization_id,
         location_name,
         location_category,
@@ -722,8 +732,8 @@ hospital_order <- clif_adt %>%
   mutate(hospital_label = paste0("Hospital ", site_name," ", row_number()))
 
 clif_adt <- clif_adt |> 
-  left_join(hospital_order %>% select(hospital_id, hospital_label), by = "hospital_id") |> 
-  select(-hospital_id) |> 
+  left_join(hospital_order %>% dplyr::select(hospital_id, hospital_label), by = "hospital_id") |> 
+  dplyr::select(-hospital_id) |> 
   rename(hospital_id = hospital_label) 
   
   
@@ -731,7 +741,7 @@ clif_adt <- clif_adt |>
 # Vitals to merge with patient so we can get BMI, height, spo2 information
 clif_vitals <- import_df("clif_vitals") |> 
       # Check if Variables match!!
-      select(
+      dplyr::select(
         clif_hospitalizations_joined_id, hospitalization_id,
         recorded_dttm,
         vital_name,
@@ -744,7 +754,7 @@ clif_vitals <- import_df("clif_vitals") |>
 clif_gcs <- import_df("clif_patient_assessments") |> 
   filter(assessment_category == "gcs_total") |> 
       # Check if Variables match!!
-      select(
+      dplyr::select(
         clif_hospitalizations_joined_id, hospitalization_id,
         recorded_dttm,
         gcs_total = numerical_value
@@ -753,7 +763,7 @@ clif_gcs <- import_df("clif_patient_assessments") |>
 # Labs to merge with patient so we can get pao2 all lap2 needs
 clif_labs <- import_df("clif_labs") |> 
       # Check if Variables match!!
-      select(
+      dplyr::select(
         clif_hospitalizations_joined_id, hospitalization_id,
         lab_order_dttm,
         lab_result_dttm,
@@ -773,7 +783,7 @@ clif_labs <- import_df("clif_labs") |>
 # Demographics 
 clif_patient <- import_df("clif_patient") |> 
       # Check if Variables match!!
-      select(
+      dplyr::select(
         clif_hospitalizations_joined_id, hospitalization_id,
         patient_id,
         sex_category,
@@ -783,14 +793,15 @@ clif_patient <- import_df("clif_patient") |>
   arrange(patient_id, sex_category) |> 
   # account for possible "male" and "unknown" documentation. very race.  taking male > unknown 
   # distinct will slice the top one.
-  distinct(clif_hospitalizations_joined_id, hospitalization_id, patient_id, .keep_all = TRUE) 
+  distinct(clif_hospitalizations_joined_id, hospitalization_id, patient_id, .keep_all = TRUE) |> 
+  filter(sex_category != "unknown")
 
 
 # THIS IS DONE ALREADY ABOVE!!
 # # Encounter Information 
 # clif_hospitalization <- import_df("clif_hospitalization") |>
 #       # Check if Variables match!!
-#       select(clif_hospitalizations_joined_id, hospitalization_id,
+#       dplyr::select(clif_hospitalizations_joined_id, hospitalization_id,
 #              patient_id,
 #              # admission_type_category, # don't have this yet in CLIF
 #              admission_dttm,
@@ -803,7 +814,7 @@ clif_patient <- import_df("clif_patient") |>
 
 # combining them to one df
 clif_demographics_combined <- clif_patient |> 
-  left_join(clif_hospitalization) |> select(-hospitalization_id) |> distinct()
+  left_join(clif_hospitalization) |> dplyr::select(-hospitalization_id) |> distinct()
 
 
 
@@ -891,7 +902,7 @@ ni_toc()
 #~~~~~~~~~~~~~~~~
 ni_tic()
 df_resp_support_1  <- clif_respiratory_support |> 
-  select(clif_hospitalizations_joined_id, hospitalization_id, recorded_dttm, device_category, device_name, mode_category, mode_name, 
+  dplyr::select(clif_hospitalizations_joined_id, hospitalization_id, recorded_dttm, device_category, device_name, mode_category, mode_name, 
          fio2_set, lpm_set, tidal_volume_set, peep_set,  pressure_support_set, resp_rate_set, tracheostomy, 
          tidal_volume_obs, peak_inspiratory_pressure_obs, minute_vent_obs, plateau_pressure_obs, starts_with("mean_airway_pressure_obs") 
   )
@@ -909,6 +920,7 @@ if ("mean_airway_pressure_obs" %in% names(df_resp_support_1)){
 }
   
   
+df_resp_support_1 <- df_resp_support_1 |> 
   mutate(
     # fio2_set
     fio2_set = fcase(fio2_set > 100, NA_real_, rep_len(TRUE, length(fio2_set)), fio2_set),
@@ -952,7 +964,7 @@ if ("mean_airway_pressure_obs" %in% names(df_resp_support_1)){
   # getting hospital ID for each hour
   dplyr::left_join( #tidy_table doesn't like it when you use join_by() with between (Dropped tidy_table 2_2024) 
     clif_adt |> 
-      select(clif_hospitalizations_joined_id, hospital_id, location_name, location_category, in_dttm, out_dttm),
+      dplyr::select(clif_hospitalizations_joined_id, hospital_id, location_name, location_category, in_dttm, out_dttm),
     by = join_by(clif_hospitalizations_joined_id, between(recorded_dttm, in_dttm, out_dttm))
   ) |> 
 
@@ -1262,7 +1274,7 @@ df_resp_support <- df_resp_support_1 |>
   
   # need to get rid of duplicates 
   distinct() |> 
-  select(
+  dplyr::select(
     clif_hospitalizations_joined_id,
     recorded_dttm,
     recorded_date,
@@ -1377,7 +1389,7 @@ df_spo2 <- clif_vitals |>
   group_by(clif_hospitalizations_joined_id, recorded_date, recorded_hour) |> 
   summarize(spo2 = fmin(spo2, na.rm = TRUE)) |> 
   ungroup() |> 
-  select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, spo2)
+  dplyr::select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, spo2)
   
 
 ##~~~~~~~~~~~~~
@@ -1389,7 +1401,7 @@ df_po2_arterial <-  clif_labs |>
                              "so2_arterial")) |> 
   # going to use collected_time and not result time because its important when doing PF ratios
   # also important because we are doing daily LAPS2, so its key is when its collected
-  select(clif_hospitalizations_joined_id, recorded_dttm = lab_collect_dttm, lab_category, lab_value_numeric) |>
+  dplyr::select(clif_hospitalizations_joined_id, recorded_dttm = lab_collect_dttm, lab_category, lab_value_numeric) |>
 
   # getting po2_arterial / so2_arterial
   pivot_wider(
@@ -1411,7 +1423,7 @@ df_po2_arterial <-  clif_labs |>
   ungroup() |> 
       # getting date so we can group by this
   mutate(recorded_hour = hour(recorded_date)) |> 
-  select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, po2_arterial, so2_arterial)
+  dplyr::select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, po2_arterial, so2_arterial)
 
 ##~~~~~~~~~~~~~
 ##~~ ibw
@@ -1441,7 +1453,7 @@ df_ibw <- clif_vitals |>
   
   # get biological sex_category
   left_join(clif_patient |> 
-             select(clif_hospitalizations_joined_id, sex_category)
+             dplyr::select(clif_hospitalizations_joined_id, sex_category)
             ) |> 
   
   # Calculate ibw for males
@@ -1459,7 +1471,7 @@ df_ibw <- clif_vitals |>
   mutate(ibw = ffirst(ibw, na.rm = TRUE)) |> 
   
   # getting only the variables we want
-  select(clif_hospitalizations_joined_id, ibw, sex_category) |> 
+  dplyr::select(clif_hospitalizations_joined_id, ibw, sex_category) |> 
   ungroup() |> 
   distinct()
 
@@ -1474,31 +1486,31 @@ df_ibw <- clif_vitals |>
    # getting trach hospital (first one with trach == 1)
 trach_hospital_id <- df_resp_support |> 
   filter(tracheostomy == 1) |> 
-  select(clif_hospitalizations_joined_id, recorded_date, trach_hospital_id = hospital_id) |> 
+  dplyr::select(clif_hospitalizations_joined_id, recorded_date, trach_hospital_id = hospital_id) |> 
   arrange(clif_hospitalizations_joined_id, recorded_date) |> 
   group_by(clif_hospitalizations_joined_id) |> 
   mutate(trach_hospital_id = ffirst(trach_hospital_id)) |> 
-  select(clif_hospitalizations_joined_id, trach_hospital_id) |> 
+  dplyr::select(clif_hospitalizations_joined_id, trach_hospital_id) |> 
   distinct() 
 
   # get the first trach day by encounter only
 trach_day1 <- df_resp_support |> 
   filter(tracheostomy == 1) |> 
-  select(clif_hospitalizations_joined_id, recorded_date) |> 
+  dplyr::select(clif_hospitalizations_joined_id, recorded_date) |> 
   arrange(clif_hospitalizations_joined_id, recorded_date) |> 
   group_by(clif_hospitalizations_joined_id) |> 
   mutate(trach_day1 = fmin(recorded_date, na.rm = TRUE)) |> 
-  select(clif_hospitalizations_joined_id, trach_day1) |> 
+  dplyr::select(clif_hospitalizations_joined_id, trach_day1) |> 
   distinct() 
 
   # get the first ventilator day by encounter only
 vent_day1 <- df_resp_support |> 
   filter(device_category == "imv") |> 
-  select(clif_hospitalizations_joined_id, recorded_date) |> 
+  dplyr::select(clif_hospitalizations_joined_id, recorded_date) |> 
   arrange(clif_hospitalizations_joined_id, recorded_date) |> 
   group_by(clif_hospitalizations_joined_id) |> 
   mutate(vent_day1 = fmin(recorded_date, na.rm = TRUE)) |> 
-  select(clif_hospitalizations_joined_id, vent_day1) |> 
+  dplyr::select(clif_hospitalizations_joined_id, vent_day1) |> 
   distinct() 
   
 df_trach_variation <- df_resp_support |> 
@@ -1510,7 +1522,7 @@ df_trach_variation <- df_resp_support |>
   # getting vent days or trach days ONLY
   filter(device_category == "imv" | tracheostomy == 1) |> 
   
-  select(clif_hospitalizations_joined_id, recorded_date, tracheostomy) |> 
+  dplyr::select(clif_hospitalizations_joined_id, recorded_date, tracheostomy) |> 
   distinct() |> 
   
   arrange(clif_hospitalizations_joined_id, recorded_date) |> 
@@ -1533,7 +1545,7 @@ df_trach_variation <- df_resp_support |>
   
   # get rid of those with zero vent_day_count (aka they were trached the whole time)
   filter(vent_day_count > 0) |> 
-  select(clif_hospitalizations_joined_id, trach_hospital_id, trach_day1, vent_day1, vent_day_count) |> 
+  dplyr::select(clif_hospitalizations_joined_id, trach_hospital_id, trach_day1, vent_day1, vent_day_count) |> 
   mutate(vent_day_count_max = max(vent_day_count, na.rm = TRUE)) |> 
   
   # true "trach_day" is vent_day_count_max - 1 because we didn't have a vent_day_zero... we started at 1
@@ -1542,7 +1554,7 @@ df_trach_variation <- df_resp_support |>
   mutate(
   trach_day = difftime(trach_day1, vent_day1, units = "days")
     ) |>
-  select(clif_hospitalizations_joined_id, trach_hospital_id, vent_days_before_trach) |> 
+  dplyr::select(clif_hospitalizations_joined_id, trach_hospital_id, vent_days_before_trach) |> 
   ungroup() |>
   distinct()
 
@@ -1658,7 +1670,7 @@ df_hourly_resp_support2 <- df_hourly_resp_support1 |>
   
 
   # final variables
-  select(
+  dplyr::select(
   clif_hospitalizations_joined_id,
   recorded_date,
   recorded_hour,
@@ -1725,7 +1737,7 @@ ni_toc()
   
 df_hourly_resp_support <- df_hourly_resp_support2 |> 
    # final variables
-    select(
+    dplyr::select(
       clif_hospitalizations_joined_id,
       recorded_date,
       recorded_hour,
@@ -1830,7 +1842,7 @@ mode_hourly_resp_support <- df_hourly_resp_support |>
       mode_category = fct_infreq(mode_category),
       hospital_id_graph = fct_infreq(hospital_id)
     ) |> 
-  select(hospital_id_graph, mode_category)
+  dplyr::select(hospital_id_graph, mode_category)
 
 mode_hourly_resp_support_table <- mode_hourly_resp_support |> 
   count(hospital_id_graph, mode_category) |> 
@@ -1840,7 +1852,7 @@ test_mode <- mode_hourly_resp_support_table |>
   uncount(n) 
 
 ### A FINAL TABLE
-write.csv(mode_hourly_resp_support_table, paste0("output/final/mode_hourly_resp_support_table_",site_name, "_",Sys.date(),".csv"))
+write.csv(mode_hourly_resp_support_table, paste0("output/final/mode_hourly_resp_support_table_",site_name, "_",Sys.Date(),".csv"))
 
 ```
 
@@ -1898,7 +1910,7 @@ ggplot(
 <!-- # clean up trach days -->
 <!--  trach_variation <- df_hourly_resp_support |>  -->
 <!--   filter(!is.na(vent_days_before_trach)) |>  -->
-<!--   select(clif_hospitalizations_joined_id, trach_hospital_id, vent_days_before_trach) |>  -->
+<!--   dplyr::select(clif_hospitalizations_joined_id, trach_hospital_id, vent_days_before_trach) |>  -->
 <!--   ungroup() |> -->
 <!--   distinct() -->
 
@@ -2030,7 +2042,7 @@ icu_hosp_ranks_8cc <- ltvv_variation |>
   filter(vt_bin %in% c("8-9 cc/kg","9-10 cc/kg", "10-11 cc/kg", "11-12 cc/kg", ">= 12 cc/kg")) |> 
   group_by(hospital_id) |> 
   mutate(pct_over_8 = sum(count_bin) / count_hosp) |> 
-  select(hospital_id, pct_over_8) |> 
+  dplyr::select(hospital_id, pct_over_8) |> 
   distinct() |>
   arrange(pct_over_8) |>  
   pull(hospital_id)
@@ -2081,11 +2093,11 @@ clif_mean_r = function(v)
 
 
 clif_demographics_table_start <- df_hourly_resp_support |> 
-  select(clif_hospitalizations_joined_id, tracheostomy, hospital_id, vent_episode_id, vent_episode_hospital_duration_hours) |> 
+  dplyr::select(clif_hospitalizations_joined_id, tracheostomy, hospital_id, vent_episode_id, vent_episode_hospital_duration_hours) |> 
   
   # taking the first round of MV only
   filter((vent_episode_id == 1)) |> 
-  select(-vent_episode_id) |> 
+  dplyr::select(-vent_episode_id) |> 
   distinct() |> 
   
   # bring in demographics
@@ -2125,7 +2137,7 @@ clif_demographics_table_start <- df_hourly_resp_support |>
   mutate(across(where(is.character), str_to_title)) |> 
   mutate(across(where(is.character), as.factor))
 
-# hospitals <- clif_demographics_table_start |> select(hospital_id) |> distinct() |> pull()
+# hospitals <- clif_demographics_table_start |> dplyr::select(hospital_id) |> distinct() |> pull()
 # 
 # for (hosp in hospitals) {
 #   clif_demographics_table_start_hosp <- clif_demographics_table_start |> filter(hospital_id == hosp)
@@ -2182,13 +2194,32 @@ write.csv(table_summary, paste0("output/final/hospital_table1_summary_", site_na
 
 ```{r}
 
+
+# Create height quantiles
+height_breaks <- c(0, 60, 63, 66, 69, 72, 100)  # Corresponds to < 5 feet, 5-5’3”, 5’3”-5’6”, ..., >6’3”
+height_labels <- c("< 5 feet", "5-5’3”", "5’3”-5’6”", "5’6”-5’9”", "5’9”-6’0”", "> 6’3”")
+
+clif_height <- clif_vitals |> filter(vital_category == "height_cm") |> 
+  arrange(clif_hospitalizations_joined_id, recorded_dttm) |>
+  dplyr::select(clif_hospitalizations_joined_id, height_cm = vital_value) |> 
+  filter(!is.na(height_cm)) |> 
+  mutate(height_inches = height_cm / 2.54) |> 
+    mutate(
+    height_quantile = cut(height_inches, breaks = height_breaks, labels = height_labels, include.lowest = TRUE)
+    ) |> 
+  distinct(clif_hospitalizations_joined_id, .keep_all = TRUE)
+
+
 ltvv_female <- ltvv_variation |> 
-  left_join(clif_demographics_combined |> select(sex_category, clif_hospitalizations_joined_id) |> distinct()) |> 
-  filter(!sex_category == "unknown") 
+  left_join(clif_demographics_combined |> dplyr::select(sex_category, clif_hospitalizations_joined_id) |> distinct()) |> 
+  filter(!sex_category == "unknown") |> 
+  left_join(clif_height) |> 
+  mutate(median_vt_ibw_patient = median(vt_cckg, na.rm = TRUE),
+         by = "clif_hospitalizations_joined_id")
 
 
 ltvv_female_table <- ltvv_female |> 
-  count(hospital_id, sex_category, vt_bin) |> 
+  count(hospital_id, sex_category, vt_bin, height_quantile) |> 
   mutate(health_system = site_name)
 
 test_ltvv_female_table <- ltvv_female_table |> 
@@ -2201,7 +2232,7 @@ write.csv(ltvv_female_table, paste0("output/final/ltvv_female_table_",site_name,
 
 
 ###### I will make this table with everyones data
-summary_data <- ltvv_female_table %>%
+summary_data_bar <- ltvv_female_table %>%
     filter(hospital_id %in% icu_hosp_ranks_8cc) |> 
   mutate(hospital_id = factor(hospital_id, levels = rev(icu_hosp_ranks_8cc))) |> 
   group_by(hospital_id, sex_category) %>%
@@ -2227,13 +2258,13 @@ custom_colors <- c(
 
 
 # Proportional bar chart
-ggplot(summary_data, aes(x = proportion, y = hospital_id, fill = vt_bin)) +
+ggplot(summary_data_bar, aes(x = proportion, y = hospital_id, fill = vt_bin)) +
   geom_bar(stat = "identity") +
   facet_wrap(~ sex_category) +
   labs(
     title = "Proportion of Tidal Volume Categories by Hospital and Sex",
-    x = "Hospital",
-    y = "Proportion",
+    x = "Proportion tidal volume per IBW",
+    y = "Hospital",
     fill = "Tidal Volume Category"
   ) +
   scale_fill_manual(values = custom_colors) +  # Apply the custom color palette
@@ -2246,6 +2277,119 @@ ggplot(summary_data, aes(x = proportion, y = hospital_id, fill = vt_bin)) +
   ) 
 
 
+##################################
+# Calculate proportions of tidal volume bins by height quantile and sex
+# Ensure sex_category is treated as a factor
+summary_data_height <- ltvv_female_table %>%
+  group_by(height_quantile, sex_category, vt_bin) %>%
+  summarize(total_n = sum(n), .groups = 'drop') %>%
+  group_by(height_quantile, sex_category) %>%
+  mutate(proportion = total_n / sum(total_n)) %>%
+  ungroup() %>%
+  mutate(sex_category = factor(sex_category, levels = c("male", "female")))  # Explicitly set factor levels
+
+# Scatter plot for proportions of tidal volume bins by height quantile
+ggplot(summary_data_height, aes(x = height_quantile, y = vt_bin, color = sex_category, size = proportion)) +
+  geom_point(alpha = 0.7) +  # Add transparency to improve visualization
+  labs(
+    title = "Proportion of Tidal Volume Bins by Height Quantiles and Sex",
+    x = "Height Quantile",
+    y = "Tidal Volume Category (cc/kg)",
+    color = "Sex Category",
+    size = "Proportion"
+  ) +
+  scale_color_manual(values = c("male" = "blue", "female" = "green")) +  # Colors for male/female
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),  # Angle x-axis labels for readability
+    legend.title = element_text(size = 10, face = "bold"),
+    plot.title = element_text(size = 14, face = "bold"),
+    legend.position = "top"
+  )
+
+
+
+# Heat map
+blue_gradient <- colorRampPalette(c("white", "blue"))(100)
+
+# Define a function to assign border color based on vt_bin
+border_colors <- function(vt_bin) {
+  if (vt_bin %in% c("< 4 cc/kg", "4-5 cc/kg", "5-6 cc/kg")) {
+    return("green")  # Great
+  } else if (vt_bin %in% c("6-7 cc/kg", "7-8 cc/kg")) {
+    return("yellow")  # Ok
+  } else {
+    return("red")  # Bad
+  }
+}
+
+# Add a new column to define border color based on vt_bin
+summary_data_height <- summary_data_height %>%
+  mutate(border_color = sapply(vt_bin, border_colors))
+
+# Heatmap with custom borders for tidal volume categories
+ggplot(summary_data_height, aes(x = height_quantile, y = vt_bin, fill = proportion)) +
+  geom_tile(color = summary_data_height$border_color, size = 1) +  # Border color based on vt_bin
+  facet_wrap(~sex_category) +  # Facet by sex category to show differences
+  scale_fill_gradientn(
+    colors = blue_gradient,  # Apply 100-step gradient from white to blue
+    limits = c(0, 1),        # Ensure the gradient covers the full range of proportions (0 to 1)
+    name = "Proportion"
+  ) +
+  labs(
+    title = "Heatmap of Tidal Volume Proportions by Height Quantiles and Sex",
+    x = "Height Quantile",
+    y = "Tidal Volume Category",
+    fill = "Proportion"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.title = element_text(size = 10, face = "bold"),
+    plot.title = element_text(size = 14, face = "bold"),
+    legend.position = "top"
+  )
+
+
+
+# side by side
+ggplot(summary_data_height, aes(x = height_quantile, y = proportion, fill = vt_bin)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  facet_wrap(~sex_category) +
+  labs(
+    title = "Side-by-Side Comparison of Tidal Volume Bins by Height Quantiles and Sex",
+    x = "Height Quantile",
+    y = "Proportion",
+    fill = "Tidal Volume Category"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.title = element_text(size = 10, face = "bold"),
+    plot.title = element_text(size = 14, face = "bold"),
+    legend.position = "top"
+  )
+
+
+# stacked proporation
+ggplot(summary_data_height, aes(x = height_quantile, y = proportion, fill = vt_bin)) +
+  geom_bar(stat = "identity", position = "stack") +
+  facet_wrap(~sex_category) +
+  labs(
+    title = "Proportion of Tidal Volume Bins by Height Quantiles and Sex",
+    x = "Height Quantile",
+    y = "Proportion",
+    fill = "Tidal Volume Category"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.title = element_text(size = 10, face = "bold"),
+    plot.title = element_text(size = 14, face = "bold"),
+    legend.position = "top"
+  )
+
+####################################
 # Violin plot for your own viewing
 
 ltvv_variation |>
@@ -2300,7 +2444,7 @@ clif_adt_hospital <-  clif_adt |>
   # first one will be ICU
   slice_head(n=1) |> 
   ungroup() |> 
-  select(clif_hospitalizations_joined_id,
+  dplyr::select(clif_hospitalizations_joined_id,
          hospital = hospital_id)
 
 
@@ -2309,7 +2453,7 @@ clif_adt_admit <-  clif_adt |>
   arrange(clif_hospitalizations_joined_id, in_dttm) |> 
   slice_head(n=1) |> 
   ungroup() |> 
-  select(clif_hospitalizations_joined_id,
+  dplyr::select(clif_hospitalizations_joined_id,
          first_location_category = location_category)
   
 
@@ -2324,7 +2468,7 @@ df_encounter_laps2_temp1 <- clif_hospitalization |>
   left_join(clif_adt_admit) |> 
   
   # drop this so we can call distinct and get rid of duplicates
-  select(-hospitalization_id) |> 
+  dplyr::select(-hospitalization_id) |> 
   distinct() |> 
   
   # make dead/hospice column
@@ -2372,16 +2516,16 @@ clif_labs <- clif_labs %>%
 # Separate the lab values for sodium, bicarbonate, and chloride, and create recorded_date
 sodium_df <- clif_labs %>%
   filter(lab_category == "sodium") %>%
-  select(clif_hospitalizations_joined_id, recorded_dttm, recorded_date, sodium = lab_value_numeric,
+  dplyr::select(clif_hospitalizations_joined_id, recorded_dttm, recorded_date, sodium = lab_value_numeric,
          lab_order_dttm, lab_result_dttm)
 
 bicarbonate_df <- clif_labs %>%
   filter(lab_category == "bicarbonate") %>%
-  select(clif_hospitalizations_joined_id, recorded_dttm, recorded_date, bicarbonate = lab_value_numeric)
+  dplyr::select(clif_hospitalizations_joined_id, recorded_dttm, recorded_date, bicarbonate = lab_value_numeric)
 
 chloride_df <- clif_labs %>%
   filter(lab_category == "chloride") %>%
-  select(clif_hospitalizations_joined_id, recorded_dttm, recorded_date, chloride = lab_value_numeric)
+  dplyr::select(clif_hospitalizations_joined_id, recorded_dttm, recorded_date, chloride = lab_value_numeric)
 
 # Perform a join by clif_hospitalizations_joined_id and recorded_date to limit the join size
 anion_gap_df <- sodium_df %>%
@@ -2403,7 +2547,7 @@ anion_gap_df <- sodium_df %>%
   mutate(anion_gap = sodium - (bicarbonate + chloride)) %>%
   
   # Select the relevant columns
-  select(clif_hospitalizations_joined_id, recorded_dttm.x, anion_gap, lab_order_dttm, lab_result_dttm, recorded_date)
+  dplyr::select(clif_hospitalizations_joined_id, recorded_dttm.x, anion_gap, lab_order_dttm, lab_result_dttm, recorded_date)
 
 # Rename recorded_dttm.x to recorded_dttm for consistency
 anion_gap_df <- anion_gap_df %>%
@@ -2474,7 +2618,7 @@ df_pre_laps2_prep1 <-
   ) |>
   
   # Quick min/max for duplicates at the SAME time
-  select(-obs) |> 
+  dplyr::select(-obs) |> 
   distinct() 
 
 # find the duplicates by recorded_dttm
@@ -2501,7 +2645,7 @@ df_pre_laps2_prep2 <- df_pre_laps2_prep1 |>
 
 # df_pre_laps2_prep2 <- df_pre_laps2_prep1 |> 
 #   anti_join(df_pre_laps2_duplicates |> 
-#               select(clif_hospitalizations_joined_id, recorded_dttm),
+#               dplyr::select(clif_hospitalizations_joined_id, recorded_dttm),
 #             join_by(clif_hospitalizations_joined_id, recorded_dttm)) |> 
 #   bind_rows(df_pre_laps2_duplicates) |> 
   
@@ -2530,7 +2674,7 @@ df_pre_laps2_prep2 <- df_pre_laps2_prep1 |>
       sodium_recent             = flast(sodium)
            ) |> 
   ungroup() |> 
-  select(clif_hospitalizations_joined_id, ends_with("recent")) |> 
+  dplyr::select(clif_hospitalizations_joined_id, ends_with("recent")) |> 
 
   # final pre-laps labs needed
   mutate(
@@ -2539,7 +2683,7 @@ df_pre_laps2_prep2 <- df_pre_laps2_prep1 |>
     bun_cr_ratio        = bun_recent/creatinine_recent,
     ag_hco3_ratio       = (anion_gap_recent/bicarbonate_recent)*1000
   ) |> 
-  select(-ends_with("recent")) |> 
+  dplyr::select(-ends_with("recent")) |> 
   
   # replace inf with NAs (sometimes it happens when divided by zero)
   mutate(across(where(is.numeric) & !c(clif_hospitalizations_joined_id), ~ na_if(.x, is.infinite(.x)))) |> 
@@ -2557,7 +2701,7 @@ df_pre_laps2_prep2 <- df_pre_laps2_prep1 |>
  df_pre_laps_merging <- df_pre_laps2_prep2 |> 
    left_join(
      df_encounter_laps2_temp1 |> 
-       select(
+       dplyr::select(
          clif_hospitalizations_joined_id,
          admission_dttm,
          age = age_at_admission,
@@ -2637,7 +2781,7 @@ df_pre_laps_final  <- df_pre_laps_merging |>
       p_death >= 0.06 ~ 1,
       TRUE ~ 0
     )) %>%
-  select(clif_hospitalizations_joined_id, p_death, high_risk)
+  dplyr::select(clif_hospitalizations_joined_id, p_death, high_risk)
 
 ```
 
@@ -2656,7 +2800,7 @@ R2 is 17 (using GLM) vs 11 (using numbers from Escobar study) when doing glm(dea
  
 df_laps2_prep1 <- 
   df_encounter_laps2_temp1 |> 
-  select(clif_hospitalizations_joined_id, admission_dttm, discharge_dttm) |> 
+  dplyr::select(clif_hospitalizations_joined_id, admission_dttm, discharge_dttm) |> 
   distinct() |> 
   # slice_head(n=1000) |> 
   left_join(clif_labs |> 
@@ -2678,7 +2822,7 @@ df_laps2_prep1 <-
                                      "sodium",
                                      "troponin_i",
                                      "wbc")) |> 
-              select(-lab_order_dttm),
+              dplyr::select(-lab_order_dttm),
             
             # join only if between the first 24 hours
             by = join_by(clif_hospitalizations_joined_id)) |> 
@@ -2701,7 +2845,7 @@ df_laps2_prep1 <-
   ) |>
   
   # Quick min/max for duplicates at the SAME time
-  select(-obs) |> 
+  dplyr::select(-obs) |> 
   mutate(lab_date = date(recorded_dttm)) |> 
   distinct() 
 
@@ -2782,7 +2926,7 @@ df_laps2_prep2 <- df_laps2_prep1 |>
 ```{r}
 df_laps2_dayone_prep1 <- 
   df_encounter_laps2_temp1 |> 
-  select(clif_hospitalizations_joined_id, admission_dttm, discharge_dttm, dt_24hours_after_admit) |> 
+  dplyr::select(clif_hospitalizations_joined_id, admission_dttm, discharge_dttm, dt_24hours_after_admit) |> 
   distinct() |> 
   left_join(clif_labs |> 
               filter(lab_category %in% c("albumin",
@@ -2803,7 +2947,7 @@ df_laps2_dayone_prep1 <-
                                      "sodium",
                                      "troponin_i",
                                      "wbc")) |>            
-              select(-lab_order_dttm),
+              dplyr::select(-lab_order_dttm),
             
             # join only if between the first 24 hours
             by = join_by(clif_hospitalizations_joined_id, 
@@ -2829,7 +2973,7 @@ df_laps2_dayone_prep1 <-
   ) |>
   
   # Quick min/max for duplicates at the SAME time
-  select(-obs) |> 
+  dplyr::select(-obs) |> 
   distinct() 
 
 # get min/max
@@ -2881,7 +3025,7 @@ df_laps2_dayone_prep2 <- df_laps2_dayone_prep1 |>
 
 # switch out the day 1 stuff 
 df_laps2_final <- df_laps2_prep2 |> anti_join(df_laps2_dayone_prep2 |> 
-                              select(clif_hospitalizations_joined_id, lab_date)) |> 
+                              dplyr::select(clif_hospitalizations_joined_id, lab_date)) |> 
   bind_rows(df_laps2_dayone_prep2) |> 
   arrange(clif_hospitalizations_joined_id, lab_date) |> 
   
@@ -2908,7 +3052,7 @@ df_gcs_merge_ready <- clif_gcs |>
     TRUE                                    ~ NA   # we account for this when doing the points later
   )) |>
   mutate(vital_category = "gcs") |> 
-  select(clif_hospitalizations_joined_id,
+  dplyr::select(clif_hospitalizations_joined_id,
          vital_category,
          recorded_dttm,
          vital_value,
@@ -2921,7 +3065,7 @@ df_vitals_gcs <- clif_vitals |>
                                        "spo2",
                                        "heart_rate",
                                        "respiratory_rate")) |>
-              select(-meas_site_name) |> 
+              dplyr::select(-meas_site_name) |> 
               
                           # get gcs in there now
               bind_rows(df_gcs_merge_ready)
@@ -2935,7 +3079,7 @@ df_vitals_gcs <- clif_vitals |>
 
 df_laps2_vitals_prep1 <- 
   df_encounter_laps2_temp1 |> 
-  select(clif_hospitalizations_joined_id, admission_dttm, discharge_dttm) |>
+  dplyr::select(clif_hospitalizations_joined_id, admission_dttm, discharge_dttm) |>
   distinct() |> 
   left_join(df_vitals_gcs,
             
@@ -2961,7 +3105,7 @@ df_laps2_vitals_prep1 <-
   rename(resp = respiratory_rate) |> 
   
   # Quick min/max for duplicates at the SAME time
-  select(-obs) |> 
+  dplyr::select(-obs) |> 
   distinct() 
 
 # find the duplicates by day
@@ -3004,7 +3148,7 @@ df_laps2_vitals_prep2 <- df_laps2_vitals_prep1 |>
 
 df_laps2_vitals_dayone_prep1 <- 
   df_encounter_laps2_temp1 |> 
-  select(clif_hospitalizations_joined_id, admission_dttm, discharge_dttm, dt_24hours_after_admit) |>
+  dplyr::select(clif_hospitalizations_joined_id, admission_dttm, discharge_dttm, dt_24hours_after_admit) |>
   distinct() |> 
   left_join(df_vitals_gcs,
             
@@ -3033,7 +3177,7 @@ df_laps2_vitals_dayone_prep1 <-
   
   
   # Quick min/max for duplicates at the SAME time
-  select(-obs) |> 
+  dplyr::select(-obs) |> 
   
 
   distinct() 
@@ -3074,7 +3218,7 @@ df_laps2_vitals_dayone_prep2 <- df_laps2_vitals_dayone_prep1 |>
 
 # switch out the day 1 stuff 
 df_laps2_vitals_final <- df_laps2_vitals_prep2 |> anti_join(df_laps2_vitals_dayone_prep2 |> 
-                              select(clif_hospitalizations_joined_id, vital_date)) |> 
+                              dplyr::select(clif_hospitalizations_joined_id, vital_date)) |> 
   bind_rows(df_laps2_vitals_dayone_prep2) |> 
   arrange(clif_hospitalizations_joined_id, vital_date) |> 
   
@@ -3344,7 +3488,7 @@ clif_po2_arterial <- clif_labs |> filter(lab_category == "po2_arterial") |> rena
 
 clif_spo2 <- clif_vitals |> filter(vital_category == "spo2") |> rename(spo2 = vital_value)
 
-clif_fio2 <- df_hourly_resp_support |> filter(!is.na(fio2_set)) |> select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, fio2_set, location_name, location_category)
+clif_fio2 <- df_hourly_resp_support |> filter(!is.na(fio2_set)) |> dplyr::select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, fio2_set, location_name, location_category)
 
 
 df_sf_ratio <- clif_fio2 |> 
@@ -3357,7 +3501,7 @@ df_sf_ratio <- clif_fio2 |>
               distinct(clif_hospitalizations_joined_id, recorded_date, recorded_hour, .keep_all = TRUE),
             by = join_by(clif_hospitalizations_joined_id, recorded_date, recorded_hour)
   ) |> 
-  select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, recorded_dttm, fio2_set, spo2, location_name, location_category) |> 
+  dplyr::select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, recorded_dttm, fio2_set, spo2, location_name, location_category) |> 
   mutate(sf_ratio = spo2 / (fio2_set/100)) 
 
 df_pf_ratio <- df_sf_ratio |> 
@@ -3372,7 +3516,7 @@ df_pf_ratio <- df_sf_ratio |>
             by = join_by(clif_hospitalizations_joined_id, recorded_date, recorded_hour)
   ) |> 
   mutate(pf_ratio = po2_arterial / (fio2_set/100)) |> 
-  select(clif_hospitalizations_joined_id,
+  dplyr::select(clif_hospitalizations_joined_id,
          recorded_date,
          recorded_hour,
          fio2_set,
@@ -3389,7 +3533,7 @@ df_pf_ratio <- df_sf_ratio |>
 if ("mean_airway_pressure_obs" %in% names(df_resp_support_1)){
   
   
-clif_maip <- clif_respiratory_support |> filter(!is.na(mean_airway_pressure_obs)) |> select(clif_hospitalizations_joined_id, recorded_dttm, mean_airway_pressure_obs) |> 
+clif_maip <- clif_respiratory_support |> filter(!is.na(mean_airway_pressure_obs)) |> dplyr::select(clif_hospitalizations_joined_id, recorded_dttm, mean_airway_pressure_obs) |> 
     mutate(
     recorded_date = date(recorded_dttm),
     recorded_hour = hour(recorded_dttm)
@@ -3401,14 +3545,14 @@ clif_maip_matches <- clif_maip |>
                distinct(clif_hospitalizations_joined_id, recorded_date, recorded_hour, pf_ratio, sf_ratio) |> 
                filter(!is.na(pf_ratio))
              ) |> 
-  select(-pf_ratio, -sf_ratio)
+  dplyr::select(-pf_ratio, -sf_ratio)
   
 
 
 # Create a time range by adding/subtracting an hour and adjust dates for invalid hours
 clif_maip_expanded <- clif_maip |> 
   # only keeping the ones that DONT have matches and need a 1 hour buffer to find frience 
-  anti_join(clif_maip_matches |> select(clif_hospitalizations_joined_id, recorded_date, recorded_hour)) |> 
+  anti_join(clif_maip_matches |> dplyr::select(clif_hospitalizations_joined_id, recorded_date, recorded_hour)) |> 
   # Create new columns for recorded_hour - 1 and recorded_hour + 1
   mutate(
     recorded_hour_minus_1 = recorded_hour - 1,
@@ -3443,7 +3587,7 @@ df_oxygenation_index <- df_pf_ratio |>
   arrange(clif_hospitalizations_joined_id, recorded_date, recorded_hour)  |> 
   mutate(oxygenation_index = (mean_airway_pressure_obs * fio2_set) / po2_arterial) |> 
   filter(oxygenation_index < 100 ) |> 
-  select(-recorded_dttm, -time_variation) |> 
+  dplyr::select(-recorded_dttm, -time_variation) |> 
   distinct()
 }
 
@@ -3454,13 +3598,13 @@ death_or_hospice_01 <- clif_hospitalization |>   # make dead/hospice column
         c("hospice", "dead", "expired", "died")       , 1,
       default                                         = 0
     )) |> 
-  select(clif_hospitalizations_joined_id, mortality_enc = death_or_hospice_01) |> 
+  dplyr::select(clif_hospitalizations_joined_id, mortality_enc = death_or_hospice_01) |> 
   distinct()
 ```
 
 ##Oxygenation index
 ```{r}
-df_oxygenation_index_analysis_prep2 <- df_hourly_resp_support |>
+df_oxygenation_index_analysis_prep <- df_hourly_resp_support |>
   mutate(vent_01 = fifelse(device_category %in% c("imv", "trach collar"), 1, 0)) |> 
   mutate(extubated_hour = fifelse(vent_01 == 0, 1, 0)) |> 
   mutate(recorded_dttm = ymd_h(paste(recorded_date, recorded_hour))) |> 
@@ -3507,12 +3651,12 @@ df_oxygenation_index_analysis_prep2 <- df_hourly_resp_support |>
 
 first_intubation_data <- df_oxygenation_index_analysis_prep |>
   mutate(vent_hours_per_seq = difftime(last_vent_time, first_vent_time, units = "hours")) |>
-  select(-sex_category) |> 
-  left_join(clif_patient |> select(-hospitalization_id) |> distinct()) |> 
-  left_join(df_pf_ratio |> select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, pf_ratio) |> distinct()) |>
-  left_join(df_sf_ratio |> select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, sf_ratio) |> distinct()) |>
-  left_join(df_laps2_scores |> select(clif_hospitalizations_joined_id, recorded_date, laps2) |> distinct()) |> 
-  left_join(clif_hospitalization |> select(clif_hospitalizations_joined_id, age_at_admission, admission_dttm, discharge_dttm
+  dplyr::select(-sex_category) |> 
+  left_join(clif_patient |> dplyr::select(-hospitalization_id) |> distinct()) |> 
+  left_join(df_pf_ratio |> dplyr::select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, pf_ratio) |> distinct()) |>
+  left_join(df_sf_ratio |> dplyr::select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, sf_ratio) |> distinct()) |>
+  left_join(df_laps2_scores |> dplyr::select(clif_hospitalizations_joined_id, recorded_date, laps2) |> distinct()) |> 
+  left_join(clif_hospitalization |> dplyr::select(clif_hospitalizations_joined_id, age_at_admission, admission_dttm, discharge_dttm
                                            # admission_type_category
                                            ) |> distinct()) |> 
 
@@ -3525,7 +3669,7 @@ first_intubation_data <- df_oxygenation_index_analysis_prep |>
 
 if ("mean_airway_pressure_obs" %in% names(df_resp_support_1)){
 first_intubation_data <- first_intubation_data |> 
-  left_join(df_oxygenation_index |> select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, oxygenation_index) |> distinct())
+  left_join(df_oxygenation_index |> dplyr::select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, oxygenation_index) |> distinct())
 
 # Calculate the worst oxygenation index in the first 24 hours
 worst_oxygenation_24hr <- first_intubation_data %>%
@@ -3559,7 +3703,7 @@ model_data <- delta_oxygenation %>%
 
 # Join the labeled hospitals back to your model_data
 model_data <- model_data %>%
-  left_join(hospital_order %>% select(hospital_id, hospital_label), by = "hospital_id")
+  left_join(hospital_order %>% dplyr::select(hospital_id, hospital_label), by = "hospital_id")
 
 }
 
@@ -3673,18 +3817,18 @@ run_analysis_for_variable_finalfit <- function(var_name, interaction_term = FALS
     
   # Ensure model_data is a dataframe for finalfit
   model_data <- as.data.frame(model_data)
-  
-  # Count the number of encounters per hospital_id and assign "Hospital 1", "Hospital 2", etc.
-  hospital_order <- model_data %>%
-    count(hospital_id, name = "encounters") %>%
-    arrange(desc(encounters)) %>%
-    mutate(hospital_label = paste0("Hospital ", row_number()))
-  
-  # Join the labeled hospitals back to your model_data
-  model_data <- model_data %>%
-    left_join(hospital_order %>% select(hospital_id, hospital_label), by = "hospital_id") |> 
-    mutate(hospital_id = hospital_label)
-  
+  # 
+  # # Count the number of encounters per hospital_id and assign "Hospital 1", "Hospital 2", etc.
+  # hospital_order <- model_data %>%
+  #   count(hospital_id, name = "encounters") %>%
+  #   arrange(desc(encounters)) %>%
+  #   mutate(hospital_label = paste0("Hospital ", row_number()))
+  # 
+  # # Join the labeled hospitals back to your model_data
+  # model_data <- model_data %>%
+  #   left_join(hospital_order %>% dplyr::select(hospital_id, hospital_label), by = "hospital_id") |> 
+  #   mutate(hospital_id = hospital_label)
+  # 
   
   
   # Prepare the finalfit input: dependent and explanatory variables
@@ -3817,8 +3961,13 @@ htvv_step1 <- first_intubation_data |>
 # Create the survival object
 survival_object_48hr <- with(htvv_step1, Surv(time = vent_episode_hour_seq, event = event))
 
+
+cox_48hr <- coxph(survival_object_48hr ~ cumulative_htvv_hours + sex_category + worst_laps2_24hr + worst_sf_ratio, data = htvv_step1)
+
+if (hosp_id_count > 1) {
 # Fit the Cox model for predicting death within 48 hours
 cox_48hr <- coxph(survival_object_48hr ~ cumulative_htvv_hours + sex_category + hospital_id + worst_laps2_24hr + worst_sf_ratio, data = htvv_step1)
+}
 
 # Summary of the model
 summary(cox_48hr)
@@ -3849,8 +3998,14 @@ htvv_step1_stata <- htvv_step1 %>%
   inner_join(htvv_strata)  # this will drop those with ZERO exposure because they are likely skewing things
 
 
+fit_htvv <- survfit(coxph(Surv(vent_episode_hour_seq, event) ~ strata(htvv_group) + sex_category + worst_laps2_24hr + worst_sf_ratio, data = htvv_step1_stata))
+
+
+
+if (hosp_id_count > 1) {
 # Stratified survival curves by HTVV group
 fit_htvv <- survfit(coxph(Surv(vent_episode_hour_seq, event) ~ strata(htvv_group) + sex_category + hospital_id + worst_laps2_24hr + worst_sf_ratio, data = htvv_step1_stata))
+}
 
 # Plot survival curves for different HTVV groups
 plot(fit_htvv, col = 1:4, lty = 1:4, main = "Effect of HTVV on Survival", xlab = "Ventilation Hours", ylab = "Survival Probability")
@@ -3873,9 +4028,10 @@ htvv_levels <- c(10, 30, 90, 500, 1000)
 # Predict survival curves for specific HTVV levels
 new_data <- data.frame(cumulative_htvv_hours = htvv_levels,
                        sex_category = "male",  # Set other covariates (e.g., male)
-                       hospital_id = "Hospital 1",  # Set a specific hospital
+                       hospital_id = paste0("Hospital ",site_name," 1"),  # Set a specific hospital
                        worst_laps2_24hr = mean(htvv_step1$worst_laps2_24hr, na.rm = TRUE),
                        worst_sf_ratio = mean(htvv_step1$worst_sf_ratio, na.rm = TRUE))
+
 
 # Generate survival predictions
 surv_pred <- survfit(cox_48hr, newdata = new_data)
@@ -3891,9 +4047,38 @@ legend("topright", legend = paste("HTVV =", htvv_levels, "hours"), col = 1:5, lt
 # Gender analysis 
 ```{r}
 
+# Assuming CLIF labs table contains pH and pCO2 values along with recorded_dttm
+# Prepare the labs data
+clif_labs_htvv <- clif_labs %>%
+  filter(lab_category %in% c("ph_arterial", "pco2_arterial")) %>%  # Filter for pH and pCO2 from the labs
+  mutate(
+    recorded_date = date(lab_result_dttm),  # Extract date from recorded timestamp
+    recorded_hour = hour(lab_result_dttm)  # Extract hour from timestamp
+  ) |> 
+  mutate(
+    ph = fifelse(lab_category == "ph_arterial", lab_value_numeric, NA_real_),  # Assuming lab_name stores 'pH'
+    pco2 = fifelse(lab_category == "pco2_arterial", lab_value_numeric, NA_real_)  # Assuming lab_name stores 'pCO2_arterial'
+  ) |> 
+  dplyr::select(
+    clif_hospitalizations_joined_id,
+    recorded_date,
+    recorded_hour,
+    ph,
+    pco2
+  ) |> 
+  #  getting it so that there is one row per hour
+  group_by(clif_hospitalizations_joined_id,
+           recorded_date, recorded_hour) |> 
+  mutate(
+    ph = ffirst(ph, na.rm = TRUE),
+    pco2 = ffirst(pco2, na.rm = TRUE)
+  ) |> 
+  ungroup() |> distinct()
+
+
 # Prepare the data (as before)
 htvv_analysis <- htvv_step1 %>%
-  select(
+  dplyr::select(
     vt_per_kg_ibw,
     sex_category,
     age_at_admission,
@@ -3901,15 +4086,19 @@ htvv_analysis <- htvv_step1 %>%
     race_category,
     hospital_id,
     pf_ratio,
-    clif_hospitalizations_joined_id  # Patient ID
+    clif_hospitalizations_joined_id,  # Patient ID
+    recorded_date,
+    recorded_hour
   ) %>%
   drop_na() %>%
+  left_join(clif_labs_htvv |> distinct(), by = join_by(clif_hospitalizations_joined_id,recorded_date,recorded_hour)) |> 
   mutate(
     sex_category = as.factor(sex_category),
     race_category = as.factor(race_category),
     hospital_id = as.factor(hospital_id),
     patient_id = as.factor(clif_hospitalizations_joined_id)  # Ensure patient_id is a factor
-  )
+  ) |> 
+  left_join(clif_height |> dplyr::select(clif_hospitalizations_joined_id, height_cm))
 
 # Summary statistics
 summary(htvv_analysis)
@@ -3917,23 +4106,44 @@ summary(htvv_analysis)
 # Check distribution of vt_per_kg_ibw
 hist(htvv_analysis$vt_per_kg_ibw, main = "Distribution of vt_per_kg_ibw", xlab = "vt_per_kg_ibw")
 
-# Fit the mixed-effects model with random intercepts for patients and hospitals
+
+# Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
 mixed_model <- lmer(
-  vt_per_kg_ibw ~ sex_category + age_at_admission + laps2 + race_category + pf_ratio +
-    (1 | hospital_id) + (1 | patient_id),
+  vt_per_kg_ibw ~
+    sex_category * height_cm +
+    age_at_admission +
+    laps2 +
+    race_category +
+    pf_ratio +
+    ph +          # Include ph in the model
+    pco2 +        # Include pco2 in the model
+    (1 | patient_id),
   data = htvv_analysis
 )
 
-summary(mixed_model)
+if (hosp_id_count > 1) {
+  # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
+  mixed_model <- lmer(
+    vt_per_kg_ibw ~
+      sex_category * height_cm +
+      age_at_admission +
+      laps2 +
+      race_category +
+      pf_ratio +
+      ph +          # Include ph in the model
+      pco2 +        # Include pco2 in the model
+      (1 | hospital_id) + (1 | patient_id),
+    data = htvv_analysis
+  )
+}
+
 # Tidy the mixed model results
 model_results <- tidy(mixed_model, effects = "fixed", conf.int = TRUE)
-
-# View the results
 print(model_results)
 
 # Select relevant columns and rename them
 results_to_save <- model_results %>%
-  select(
+  dplyr::select(
     Variable = term,
     Estimate = estimate,
     StdError = std.error,
@@ -3942,16 +4152,15 @@ results_to_save <- model_results %>%
     DegreesFreedom = df,
     Statistic = statistic,
     PValue = p.value
-  ) |> 
-# Add StudyID and Model columns
+  ) %>%
+  # Add StudyID and Model columns
   mutate(
     StudyID = "sex_category_ltvv",  # Replace with your actual Study ID
     Model = "MixedEffectsModel",
     Site = site_name
-  ) |> 
-
-# Rearrange columns
-  select(
+  ) %>%
+  # Rearrange columns
+  dplyr::select(
     StudyID,
     Model,
     Site,
@@ -3965,7 +4174,47 @@ results_to_save <- model_results %>%
     PValue
   )
 
-write.csv()
+write.csv(results_to_save, paste0("output/final/sex_category_ltvv_", site_name, "_", Sys.Date(), ".csv"))
+
+# Create a sequence of height values for prediction
+new_height <- seq(min(htvv_analysis$height_cm), max(htvv_analysis$height_cm), length.out = 100)
+
+# Get median or typical values for other continuous covariates
+median_age <- median(htvv_analysis$age_at_admission, na.rm = TRUE)
+median_laps2 <- median(htvv_analysis$laps2, na.rm = TRUE)
+median_pf_ratio <- median(htvv_analysis$pf_ratio, na.rm = TRUE)
+median_ph <- median(htvv_analysis$ph, na.rm = TRUE)
+median_pco2 <- median(htvv_analysis$pco2, na.rm = TRUE)
+
+# Use the most frequent value for categorical variables
+common_race <- names(sort(table(htvv_analysis$race_category), decreasing = TRUE))[1]
+
+# Create new data frame for predictions
+new_data <- expand.grid(
+  height_cm = new_height,
+  sex_category = unique(htvv_analysis$sex_category),
+  age_at_admission = median_age,
+  laps2 = median_laps2,
+  pf_ratio = median_pf_ratio,
+  ph = median_ph,
+  pco2 = median_pco2,
+  race_category = common_race
+)
+
+# Predict based on fixed effects, ignoring random effects
+new_data$predicted_vt_per_kg_ibw <- predict(mixed_model, newdata = new_data, re.form = NA)
+
+# Plot the predictions
+ggplot(new_data, aes(x = height_cm, y = predicted_vt_per_kg_ibw, color = sex_category)) +
+  geom_line() +
+  labs(
+    x = "Height (cm)",
+    y = "Predicted VT per kg IBW",
+    color = "Sex"
+  ) +
+  theme_minimal()
+
+
 
 # Aggregate data to patient level
 patient_level_data <- htvv_step1 %>%
@@ -4000,8 +4249,8 @@ patient_level_data <- htvv_step1 %>%
 ## OI Analysis
 ```{r}
 # OI_analysis <- df_oxygenation_index_analysis_prep |> 
-#   select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, time_on_ventilator = vent_episode_hour_seq, mortality, extubated) |> 
-#   left_join(df_oxygenation_index |> select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, OI = oxygenation_index)) |> 
+#   dplyr::select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, time_on_ventilator = vent_episode_hour_seq, mortality, extubated) |> 
+#   left_join(df_oxygenation_index |> dplyr::select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, OI = oxygenation_index)) |> 
 #   # keep censoring rows or when we have OI data
 #   filter(!is.na(OI) | mortality == 1 | extubated == 1) |> 
 #   # mutate(day = floor(time_on_ventilator / 24)) |> 
@@ -4014,7 +4263,7 @@ patient_level_data <- htvv_step1 %>%
 #   group_by(clif_hospitalizations_joined_id) |> 
 #   mutate(peak_OI = fmax(OI, na.rm = TRUE)) |> 
 #   ungroup() |> 
-#   select(OI, mortality, time_on_ventilator, extubated, peak_OI) |> 
+#   dplyr::select(OI, mortality, time_on_ventilator, extubated, peak_OI) |> 
 #   filter(time_on_ventilator<600) |> 
 #   filter(!is.na(peak_OI))
 # 
@@ -4024,7 +4273,7 @@ patient_level_data <- htvv_step1 %>%
 #                         labels = c("<5", "5-10", "10-20", "20-40", "40-80", ">80"))) |> 
 #   mutate(OI_group = factor(OI_group,
 #                            levels = c("<5", "5-10", "10-20", "20-40", "40-80", ">80"))) |> 
-#   select(-peak_OI) 
+#   dplyr::select(-peak_OI) 
 #   
 # 
 # ########## EXTUBATION
