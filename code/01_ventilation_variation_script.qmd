@@ -349,8 +349,8 @@ ni_open_dataset_clif <- function(file){
 
 
 ## Date range
-start_date <- "2020-01-01"
-end_date <- "2021-12-31"
+start_date <- "2018-01-01"
+end_date <- "2024-09-30"
 
 
 # Main Respiratory Support Table
@@ -4246,166 +4246,173 @@ patient_level_data <- htvv_step1 %>%
 ```
 
 
+
+############## THE END OF REAL ANALYSIS
+# IN PRODUCTION 
+
 ## OI Analysis
 ```{r}
-# OI_analysis <- df_oxygenation_index_analysis_prep |> 
-#   dplyr::select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, time_on_ventilator = vent_episode_hour_seq, mortality, extubated) |> 
-#   left_join(df_oxygenation_index |> dplyr::select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, OI = oxygenation_index)) |> 
-#   # keep censoring rows or when we have OI data
-#   filter(!is.na(OI) | mortality == 1 | extubated == 1) |> 
-#   # mutate(day = floor(time_on_ventilator / 24)) |> 
-#   # group_by(clif_hospitalizations_joined_id, day) |> 
-#   # summarize(OI = max(OI),  # peak OI in each day
-#   #           extubated = max(extubated), 
-#   #           mortality = max(mortality)) |> 
-#   # ungroup() |> 
-#   # rename(time_on_ventilator = day) |> 
-#   group_by(clif_hospitalizations_joined_id) |> 
-#   mutate(peak_OI = fmax(OI, na.rm = TRUE)) |> 
-#   ungroup() |> 
-#   dplyr::select(OI, mortality, time_on_ventilator, extubated, peak_OI) |> 
-#   filter(time_on_ventilator<600) |> 
-#   filter(!is.na(peak_OI))
-# 
-# OI_analysis_group <- OI_analysis |> 
-#   mutate(OI_group = cut(peak_OI, 
-#                         breaks = c(-Inf, 5, 10, 20, 40, 80, Inf), 
-#                         labels = c("<5", "5-10", "10-20", "20-40", "40-80", ">80"))) |> 
-#   mutate(OI_group = factor(OI_group,
-#                            levels = c("<5", "5-10", "10-20", "20-40", "40-80", ">80"))) |> 
-#   dplyr::select(-peak_OI) 
-#   
-# 
-# ########## EXTUBATION
-# # Kaplan-Meier survival analysis based on extubation
-# km_fit <- survfit(Surv(time_on_ventilator, extubated) ~ 1, data = OI_analysis)
-# 
-# # Extract the survival data
-# km_data <- data.frame(time = km_fit$time, surv = km_fit$surv, lower = km_fit$lower, upper = km_fit$upper)
-# 
-# # Plot the survival curve without the step function and with smoothed line and confidence intervals
-# ggplot(km_data, aes(x = time, y = surv)) +
-#   geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2, fill = "lightblue") +  # Add CI ribbon
-#   geom_smooth(method = "loess", span = 0.2, se = FALSE, color = "red", size = 1) +  # Add smooth survival curve
-#   labs(title = "Smoothed Kaplan-Meier Curve with Confidence Intervals",
-#        x = "Time on Ventilator (hours)", 
-#        y = "Survival Probability") +
-#   theme_minimal()
-# 
-# 
-# # Kaplan-Meier survival analysis stratified by OI group
-# km_fit_ext_group <- survfit(Surv(time_on_ventilator, extubated) ~ OI_group, data = OI_analysis_group)
-# 
-# # Extract the survival data from the Kaplan-Meier object
-# km_data_ext <- data.frame(
-#   time = km_fit_ext_group$time,
-#   surv = km_fit_ext_group$surv,
-#   lower = km_fit_ext_group$lower, 
-#   upper = km_fit_ext_group$upper,
-#   strata = rep(names(km_fit_ext_group$strata), km_fit_ext_group$strata)  # Correctly map strata names
-# )
-# # Assuming 'strata' in km_data_ext is a factor or character
-# km_data_ext$strata <- factor(km_data_ext$strata, levels = c("OI_group=<5", "OI_group=5-10", "OI_group=10-20", "OI_group=20-40", "OI_group=40-80", "OI_group=>80"))
-# 
-# 
-# # Plot the survival curve with a smooth line for each OI group using GAM smoothing
-# ggplot(km_data_ext, aes(x = time, y = surv, color = strata, fill = strata)) +
-#   geom_smooth(method = "gam", formula = y ~ s(x, bs = "cs"), se = FALSE, size = 1.5) +  # Smooth with GAM
-#   geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) +  # Add CI ribbon, auto-fills by group
-#   
-#   labs(title = "Survival to Extubation Stratified by Peak OI",
-#        x = "Time on Ventilator (hours)",
-#        y = "Probability of Survival to Extubation") +
-#   theme_minimal() +
-#   theme(legend.position = "right",
-#         plot.title = element_text(size = 14, face = "bold"),
-#         axis.title = element_text(size = 12)) +
-#   scale_color_brewer(palette = "Set1") +  # Set color palette for groups
-#   scale_fill_brewer(palette = "Set1")  # Match fill with color for ribbon
-# 
-# 
-# 
-# ############### MORTALITY
-# # Plot hazard function for death without extubation
-# death_fit <- survfit(Surv(time_on_ventilator, mortality) ~ 1, data = OI_analysis)
-# 
-# # Extract the survival data
-# km_data_death <- data.frame(time = death_fit$time, surv = death_fit$surv, lower = death_fit$lower, upper = death_fit$upper)
-# 
-# ggsurvplot(km_data_death, aes(x = time, y = surv)) +
-#   geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2, fill = "lightblue") +  # Add CI ribbon
-#   geom_smooth(method = "loess", span = 0.2, se = FALSE, color = "red", size = 1) +  # Add smooth survival curve
-#   labs(title = "Smoothed Kaplan-Meier Curve with Confidence Intervals",
-#        x = "Time on Ventilator (hours)", 
-#        y = "Survival Probability") +
-#     theme_minimal()
-# 
-# 
-# # Kaplan-Meier survival analysis stratified by OI group
-# km_fit_mort_group <- survfit(Surv(time_on_ventilator, mortality) ~ OI_group, data = OI_analysis_group)
-# 
-# # Extract the survival data from the Kaplan-Meier object
-# km_data_mort <- data.frame(
-#   time = km_fit_mort_group$time,
-#   surv = km_fit_mort_group$surv,
-#   lower = km_fit_mort_group$lower, 
-#   upper = km_fit_mort_group$upper,
-#   strata = rep(names(km_fit_mort_group$strata), km_fit_mort_group$strata)  # Correctly map strata names
-# )
-# # Assuming 'strata' in km_data_mort is a factor or character
-# km_data_mort$strata <- factor(km_data_mort$strata, levels = c("OI_group=<5", "OI_group=5-10", "OI_group=10-20", "OI_group=20-40", "OI_group=40-80", "OI_group=>80"))
-# 
-# 
-# # Plot the survival curve with a smooth line for each OI group using GAM smoothing
-# ggplot(km_data_mort, aes(x = time, y = surv, color = strata, fill = strata)) +
-#   geom_smooth(method = "gam", formula = y ~ s(x, bs = "cs"), se = FALSE, size = 1.5) +  # Smooth with GAM
-#   geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) +  # Add CI ribbon, auto-fills by group
-#   
-#   labs(title = "Survival to Extubation Stratified by Peak OI",
-#        x = "Time on Ventilator (hours)",
-#        y = "Probability of Survival to Extubation") +
-#   theme_minimal() +
-#   theme(legend.position = "right",
-#         plot.title = element_text(size = 14, face = "bold"),
-#         axis.title = element_text(size = 12)) +
-#   scale_color_brewer(palette = "Set1") +  # Set color palette for groups
-#   scale_fill_brewer(palette = "Set1")  # Match fill with color for ribbon
-# 
-# 
-# 
-# 
-# 
-# 
-# # Combine both survival and death into one plot OI_analysis
-# competing_risks <- survfit(Surv(time_on_ventilator, extubated + mortality) ~ 1, data = OI_analysis)
-# 
-# ggsurvplot(competing_risks, data = OI_analysis,
-#            title = "Competing Risk: Survival vs. Death",
-#            xlab = "Time on Ventilator (days)",
-#            ylab = "Cumulative Event Probability",
-#            conf.int = TRUE)
-# 
-# 
-# 
-# # Stratified survival curves by OI
-# OI_analysis_test  <- OI_analysis |> 
-#   mutate(median_OI = median(OI, na.rm = TRUE)) |> 
-#   mutate(
-#     OI_group = ifelse(OI >median_OI, "High OI", "Low OI")
-#          )
-# 
-# # Kaplan-Meier survival analysis stratified by OI
-# km_oi_fit <- survfit(Surv(time_on_ventilator, extubated) ~ OI_group, data = OI_analysis_test)
-# 
-# # Plot the stratified survival curves
-# ggsurvplot(km_oi_fit, data = OI_analysis_test,
-#            title = "Survival to Extubation Stratified by Oxygenation Index",
-#            xlab = "Time on Ventilator (days)",
-#            ylab = "Probability of Survival to Extubation",
-#            conf.int = TRUE)
-#            
+
+if ("mean_airway_pressure_obs" %in% names(df_resp_support_1)){
+
+OI_analysis <- df_oxygenation_index_analysis_prep |>
+  dplyr::select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, time_on_ventilator = vent_episode_hour_seq, mortality, extubated) |>
+  left_join(df_oxygenation_index |> dplyr::select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, OI = oxygenation_index)) |>
+  # keep censoring rows or when we have OI data
+  filter(!is.na(OI) | mortality == 1 | extubated == 1) |>
+  # mutate(day = floor(time_on_ventilator / 24)) |>
+  # group_by(clif_hospitalizations_joined_id, day) |>
+  # summarize(OI = max(OI),  # peak OI in each day
+  #           extubated = max(extubated),
+  #           mortality = max(mortality)) |>
+  # ungroup() |>
+  # rename(time_on_ventilator = day) |>
+  group_by(clif_hospitalizations_joined_id) |>
+  mutate(peak_OI = fmax(OI, na.rm = TRUE)) |>
+  ungroup() |>
+  dplyr::select(OI, mortality, time_on_ventilator, extubated, peak_OI) |>
+  filter(time_on_ventilator<600) |>
+  filter(!is.na(peak_OI))
+
+OI_analysis_group <- OI_analysis |>
+  mutate(OI_group = cut(peak_OI,
+                        breaks = c(-Inf, 5, 10, 20, 40, 80, Inf),
+                        labels = c("<5", "5-10", "10-20", "20-40", "40-80", ">80"))) |>
+  mutate(OI_group = factor(OI_group,
+                           levels = c("<5", "5-10", "10-20", "20-40", "40-80", ">80"))) |>
+  dplyr::select(-peak_OI)
 
 
+########## EXTUBATION
+# Kaplan-Meier survival analysis based on extubation
+km_fit <- survfit(Surv(time_on_ventilator, extubated) ~ 1, data = OI_analysis)
+
+# Extract the survival data
+km_data <- data.frame(time = km_fit$time, surv = km_fit$surv, lower = km_fit$lower, upper = km_fit$upper)
+
+# Plot the survival curve without the step function and with smoothed line and confidence intervals
+ggplot(km_data, aes(x = time, y = surv)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2, fill = "lightblue") +  # Add CI ribbon
+  geom_smooth(method = "loess", span = 0.2, se = FALSE, color = "red", size = 1) +  # Add smooth survival curve
+  labs(title = "Smoothed Kaplan-Meier Curve with Confidence Intervals",
+       x = "Time on Ventilator (hours)",
+       y = "Survival Probability") +
+  theme_minimal()
+
+
+# Kaplan-Meier survival analysis stratified by OI group
+km_fit_ext_group <- survfit(Surv(time_on_ventilator, extubated) ~ OI_group, data = OI_analysis_group)
+
+# Extract the survival data from the Kaplan-Meier object
+km_data_ext <- data.frame(
+  time = km_fit_ext_group$time,
+  surv = km_fit_ext_group$surv,
+  lower = km_fit_ext_group$lower,
+  upper = km_fit_ext_group$upper,
+  strata = rep(names(km_fit_ext_group$strata), km_fit_ext_group$strata)  # Correctly map strata names
+)
+# Assuming 'strata' in km_data_ext is a factor or character
+km_data_ext$strata <- factor(km_data_ext$strata, levels = c("OI_group=<5", "OI_group=5-10", "OI_group=10-20", "OI_group=20-40", "OI_group=40-80", "OI_group=>80"))
+
+
+# Plot the survival curve with a smooth line for each OI group using GAM smoothing
+ggplot(km_data_ext, aes(x = time, y = surv, color = strata, fill = strata)) +
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "cs"), se = FALSE, size = 1.5) +  # Smooth with GAM
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) +  # Add CI ribbon, auto-fills by group
+
+  labs(title = "Survival to Extubation Stratified by Peak OI",
+       x = "Time on Ventilator (hours)",
+       y = "Probability of Survival to Extubation") +
+  theme_minimal() +
+  theme(legend.position = "right",
+        plot.title = element_text(size = 14, face = "bold"),
+        axis.title = element_text(size = 12)) +
+  scale_color_brewer(palette = "Set1") +  # Set color palette for groups
+  scale_fill_brewer(palette = "Set1")  # Match fill with color for ribbon
+
+
+
+############### MORTALITY
+# Plot hazard function for death without extubation
+death_fit <- survfit(Surv(time_on_ventilator, mortality) ~ 1, data = OI_analysis)
+
+# Extract the survival data
+km_data_death <- data.frame(time = death_fit$time, surv = death_fit$surv, lower = death_fit$lower, upper = death_fit$upper)
+
+ggsurvplot(km_data_death, aes(x = time, y = surv)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2, fill = "lightblue") +  # Add CI ribbon
+  geom_smooth(method = "loess", span = 0.2, se = FALSE, color = "red", size = 1) +  # Add smooth survival curve
+  labs(title = "Smoothed Kaplan-Meier Curve with Confidence Intervals",
+       x = "Time on Ventilator (hours)",
+       y = "Survival Probability") +
+    theme_minimal()
+
+
+# Kaplan-Meier survival analysis stratified by OI group
+km_fit_mort_group <- survfit(Surv(time_on_ventilator, mortality) ~ OI_group, data = OI_analysis_group)
+
+# Extract the survival data from the Kaplan-Meier object
+km_data_mort <- data.frame(
+  time = km_fit_mort_group$time,
+  surv = km_fit_mort_group$surv,
+  lower = km_fit_mort_group$lower,
+  upper = km_fit_mort_group$upper,
+  strata = rep(names(km_fit_mort_group$strata), km_fit_mort_group$strata)  # Correctly map strata names
+)
+# Assuming 'strata' in km_data_mort is a factor or character
+km_data_mort$strata <- factor(km_data_mort$strata, levels = c("OI_group=<5", "OI_group=5-10", "OI_group=10-20", "OI_group=20-40", "OI_group=40-80", "OI_group=>80"))
+
+
+# Plot the survival curve with a smooth line for each OI group using GAM smoothing
+ggplot(km_data_mort, aes(x = time, y = surv, color = strata, fill = strata)) +
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "cs"), se = FALSE, size = 1.5) +  # Smooth with GAM
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) +  # Add CI ribbon, auto-fills by group
+
+  labs(title = "Survival to Extubation Stratified by Peak OI",
+       x = "Time on Ventilator (hours)",
+       y = "Probability of Survival to Extubation") +
+  theme_minimal() +
+  theme(legend.position = "right",
+        plot.title = element_text(size = 14, face = "bold"),
+        axis.title = element_text(size = 12)) +
+  scale_color_brewer(palette = "Set1") +  # Set color palette for groups
+  scale_fill_brewer(palette = "Set1")  # Match fill with color for ribbon
+
+
+
+
+
+
+# Combine both survival and death into one plot OI_analysis
+competing_risks <- survfit(Surv(time_on_ventilator, extubated + mortality) ~ 1, data = OI_analysis)
+
+ggsurvplot(competing_risks, data = OI_analysis,
+           title = "Competing Risk: Survival vs. Death",
+           xlab = "Time on Ventilator (days)",
+           ylab = "Cumulative Event Probability",
+           conf.int = TRUE)
+
+
+
+# Stratified survival curves by OI
+OI_analysis_test  <- OI_analysis |>
+  mutate(median_OI = median(OI, na.rm = TRUE)) |>
+  mutate(
+    OI_group = ifelse(OI >median_OI, "High OI", "Low OI")
+         )
+
+# Kaplan-Meier survival analysis stratified by OI
+km_oi_fit <- survfit(Surv(time_on_ventilator, extubated) ~ OI_group, data = OI_analysis_test)
+
+# Plot the stratified survival curves
+ggsurvplot(km_oi_fit, data = OI_analysis_test,
+           title = "Survival to Extubation Stratified by Oxygenation Index",
+           xlab = "Time on Ventilator (days)",
+           ylab = "Probability of Survival to Extubation",
+           conf.int = TRUE)
+
+
+}
 ```
 
 ## analysis 1
