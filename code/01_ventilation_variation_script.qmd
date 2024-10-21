@@ -1823,7 +1823,7 @@ mode_hospital_summary_table <- df_hourly_resp_support |>
   arrange(-count) |> 
   ungroup()
 
-write_parquet(mode_hospital_summary_table, paste0("output/final/mode_hospital_summary_table",site_name,".parquet"))
+write.csv(mode_hospital_summary_table, paste0("output/final/mode_hospital_summary_table_",site_name,".csv"), row.names = FALSE)
 
 
 ##~~~~~~~~~~~~~
@@ -1852,7 +1852,7 @@ test_mode <- mode_hourly_resp_support_table |>
   uncount(n) 
 
 ### A FINAL TABLE
-write.csv(mode_hourly_resp_support_table, paste0("output/final/mode_hourly_resp_support_table_",site_name, "_",Sys.Date(),".csv"))
+write.csv(mode_hourly_resp_support_table, paste0("output/final/mode_hourly_resp_support_table_",site_name, "_",Sys.Date(),".csv"), row.names = FALSE)
 
 ```
 
@@ -2023,7 +2023,7 @@ test_ltvv <- ltvv_variation_table |>
   uncount(n) 
 
 ### A FINAL TABLE
-write.csv(ltvv_variation_table, paste0("output/final/ltvv_variation_table_",site_name,"_", Sys.Date(),".csv"))
+write.csv(ltvv_variation_table, paste0("output/final/ltvv_variation_table_",site_name,"_", Sys.Date(),".csv"), row.names = FALSE)
 ```
 
 
@@ -2226,7 +2226,7 @@ test_ltvv_female_table <- ltvv_female_table |>
   uncount(n) 
 
 ### A FINAL TABLE
-write.csv(ltvv_female_table, paste0("output/final/ltvv_female_table_",site_name,"_", Sys.Date(),".csv"))
+write.csv(ltvv_female_table, paste0("output/final/ltvv_female_table_",site_name,"_", Sys.Date(),".csv"), row.names = FALSE)
   
 
 
@@ -2811,9 +2811,9 @@ df_laps2_prep1 <-
                                      "bicarbonate",
                                      "creatinine",
                                      "glucose_serum",
-                                     "hematocrit",
+                                     # "hematocrit",
                                      "hemoglobin",
-                                     "lactic_acid",
+                                     "lactate",
                                      "pco2_arterial",
                                      "po2_arterial",
                                      "ph_arterial",
@@ -2829,7 +2829,8 @@ df_laps2_prep1 <-
   # making all hemoglobin into hematocrits
   mutate(lab_value_numeric = fifelse(lab_category == "hemoglobin", lab_value_numeric*3, lab_value_numeric)) |> 
   mutate(lab_category = fifelse(lab_category == "hemoglobin", "hematocrit", lab_category)) |> 
-  
+  mutate(lab_category = fifelse(lab_category == "lactate", "lactic_acid", lab_category)) |> 
+
     # using obs lets you get away with duplicates when going wider and can fix later!
   group_by(clif_hospitalizations_joined_id, recorded_dttm, lab_category) |> 
   mutate(obs = row_number()) |> 
@@ -2936,9 +2937,9 @@ df_laps2_dayone_prep1 <-
                                      "bicarbonate",
                                      "creatinine",
                                      "glucose_serum",
-                                     "hematocrit",
+                                     # "hematocrit",
                                      "hemoglobin",
-                                     "lactic_acid",
+                                     "lactate",
                                      "pco2_arterial",
                                      "po2_arterial",
                                      "ph_arterial",
@@ -2957,6 +2958,7 @@ df_laps2_dayone_prep1 <-
   # making all hemoglobin into hematocrits
   mutate(lab_value_numeric = fifelse(lab_category == "hemoglobin", lab_value_numeric*3, lab_value_numeric)) |> 
   mutate(lab_category = fifelse(lab_category == "hemoglobin", "hematocrit", lab_category)) |> 
+  mutate(lab_category = fifelse(lab_category == "lactate", "lactic_acid", lab_category)) |> 
   
   group_by(clif_hospitalizations_joined_id, recorded_dttm, lab_category) |> 
   # using obs lets you get away with duplicates when going wider and can fix later!
@@ -4174,7 +4176,7 @@ results_to_save <- model_results %>%
     PValue
   )
 
-write.csv(results_to_save, paste0("output/final/sex_category_ltvv_", site_name, "_", Sys.Date(), ".csv"))
+write.csv(results_to_save, paste0("output/final/sex_category_ltvv_", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
 
 # Create a sequence of height values for prediction
 new_height <- seq(min(htvv_analysis$height_cm), max(htvv_analysis$height_cm), length.out = 100)
