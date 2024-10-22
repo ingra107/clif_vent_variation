@@ -38,11 +38,11 @@ The following tables are required:
     `lab_collect_dttm`, `lab_category`, `lab_name`, `lab_value_numeric`,
     `reference_unit`, `lab_category` = 'sodium', 'albumin', 'anion_gap',
     'bilirubin_total', 'bun', 'carbon_dioxide', 'creatinine',
-    'glucose_serum', 'hematocrit', 'hemoglobin', 'lactic_acid',
+    'glucose_serum', 'hemoglobin', 'lactate',
     'pco2_arterial', 'po2_arterial', 'ph_arterial', 'platelet_count',
     'so2_arterial', 'sodium', 'troponin_i', 'wbc'
-5.  **adt**: `hospitalization_id`, `recorded_dttm`, `vital_name`,
-    `vital_category`, `vital_value`, `meas_site_name`
+5.  **adt**: `hospitalization_id`, `in_dttm`,
+    `out_dttm`, `location_name`, `location_category`
 6.  **respiratory_support**: `hospitalization_id`, `recorded_dttm`,
     `device_name`, `device_category`, `mode_name`, `mode_category`,
     `fio2_set`, `lpm_set`, `tidal_volume_set`, `resp_rate_set`,
