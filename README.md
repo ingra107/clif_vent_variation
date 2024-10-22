@@ -57,7 +57,7 @@ The following tables are required:
 ### Inclusion
 
 1.  Adults (age \>= 18 years old)
-2.  Mechnical Ventilation within 72 hours of admission
+2.  Mechanical Ventilation within 72 hours of admission
 3.  Admission from 2018-2024  (anytime between these years is acceptable... does not need to be the entire time frame)
 4.  Volume control with a set tidal volume within 24 hours of mechanical
     ventilation
@@ -68,7 +68,7 @@ The following tables are required:
 
 ## Expected Results
 
-`Table 1` - descriptive data by hospital `aggregaged data 1` - male vs.
+`Table 1` - descriptive data by hospital `aggregated data 1` - male vs.
 female LTVV `aggregated data 2` - odds ratios for regression of
 ventilator days
 
@@ -81,7 +81,7 @@ directory.
 
 *This has been completed by Nick when making this script already*
 (**SKIP**)\
-Describe the steps to setup the project environment.
+Describe the steps to set up the project environment.
 
 ```         
 # Install renv if not already installed:
@@ -112,7 +112,7 @@ pip install -r requirements.txt
 
 ## 2. Update `config/config.json`
 
-Follow instructions in the [config/README.md](config/README.md) file for
+Follow the instructions in the [config/README.md](config/README.md) file for
 detailed configuration steps.
 
 ## 3. Run code
