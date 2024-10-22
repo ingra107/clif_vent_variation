@@ -58,7 +58,7 @@ The following tables are required:
 
 1.  Adults (age \>= 18 years old)
 2.  Mechnical Ventilation within 72 hours of admission
-3.  Admission from 2020-2021
+3.  Admission from 2018-2024  (anytime between these years is acceptable... does not need to be the entire time frame)
 4.  Volume control with a set tidal volume within 24 hours of mechanical
     ventilation
 
