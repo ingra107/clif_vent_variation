@@ -1,0 +1,256 @@
+---
+title: "Variation in Ventilation Abstract ATS 2024"
+author: Nick Ingraham
+date: today
+execute: 
+  echo: false
+format: 
+  html:
+    embed-resources: true
+    number-sections: true
+    toc: true
+    html-q-tags: true
+    code-fold: true
+bibliography: references.bib
+csl: american-journal-of-respiratory-and-critical-care-medicine.csl
+editor: source
+editor_options: 
+  chunk_output_type: console
+---
+
+# Setup
+
+## In Main Script... Run all above `IMPORT`
+
+```{r}
+
+# Step 1: List all CSV files in the directory
+files <- list.files(path = "aggregate_data", pattern = "\\.csv$", full.names = TRUE)
+
+# Step 2: Function to extract base name using double underscore
+extract_base_name <- function(file_path) {
+  file_name <- basename(file_path)
+  # Remove .csv extension
+  file_name_no_ext <- sub("\\.csv$", "", file_name)
+  # Split by double underscore
+  parts <- strsplit(file_name_no_ext, "__")[[1]]
+  if (length(parts) < 2) {
+    stop(paste("Filename does not contain double underscore '__':", file_name))
+  }
+  # The base name is the part before the double underscore
+  base_name <- parts[1]
+  return(base_name)
+}
+
+# Step 3: Get base names and group files
+base_names <- sapply(files, extract_base_name)
+files_df <- data.frame(file = files, base_name = base_names, stringsAsFactors = FALSE)
+file_groups <- split(files_df$file, files_df$base_name)
+
+# Step 4: Read and combine files for each group
+data_list <- lapply(file_groups, function(file_paths) {
+  data_frames <- lapply(file_paths, read.csv)
+  combined_data <- bind_rows(data_frames)
+  return(combined_data)
+})
+
+
+```
+
+## Mode Graph
+
+```{r}
+ggplot(
+  mode_hourly_resp_support,  aes(x = hospital_id_graph, fill = mode_category)) +
+  geom_bar(position = "fill") +
+  # Use labs to add a title and remove the axis labels
+  labs(title = "Ventilator Modes by Hospital", x = "Hospital", y = "Proportion of Mode Category") + 
+  # Use theme_minimal to create a minimal theme
+  theme_minimal() +
+  # adjusting tick marks for x axis
+  theme(axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1)) +
+  # Add the summary data as a layer with a dummy aesthetic for color
+  geom_point(data = mode_hospital_summary_table, aes(x = hospital_id, y = normalized_count, color = "Total Counts"), size = 3) +
+  # Add horizontal lines at the height of each point, only spanning the width of the bar
+  geom_errorbar(data = mode_hospital_summary_table, aes(x = hospital_id, ymin = normalized_count, ymax = normalized_count, group = 1, color = "Total Counts"),
+                width = 0.9,  # Adjust this value to change the width of the horizontal lines
+                linewidth = 0.5) +  # Adjust size for line thickness
+  # geom_line(data = mode_hospital_summary_table, aes(x = hospital_id_graph, y = normalized_count, group = 1, color = "Total Counts"), linewidth = 1) +
+  # Customize the legend for the dummy aesthetic
+  scale_color_manual(name = "Legend", values = c("Total Counts" = "black"),
+                     labels = c("Total Counts" = "Total Mode Counts (Normalized)")) +
+  guides(fill = guide_legend(title = "Ventilator Mode Category", override.aes = list(color = NA)), 
+         color = guide_legend(title = "")) +
+  scale_fill_discrete(breaks = c("assist control-volume control", 
+                                 "pressure support/cpap", 
+                                 "pressure-regulated volume control",
+                                 "pressure control", 
+                                 "simv", 
+                                 "blow by"))
+
+
+```
+
+## Mortality Models
+
+```{r}
+
+# Define the directory containing the CSV files
+data_dir <- "aggregated_data"
+
+# List all CSV files that match the pattern 'model_coefficients__*.csv'
+files <- list.files(path = data_dir, pattern = "^model_coefficients__.*\\.csv$", full.names = TRUE)
+
+# Read all CSV files and combine them into a single data frame
+model_coefficients_list <- lapply(files, read_csv)
+
+# Combine all data frames into one
+model_coefficients <- bind_rows(model_coefficients_list)
+
+# Ensure that 'term', 'variable', and 'site' are factors for plotting purposes
+model_coefficients <- model_coefficients %>%
+  mutate(
+    term = as.factor(term),
+    variable = as.factor(variable),
+    site = as.factor(site)
+  ) |> 
+    mutate(significant = ifelse(p.value < 0.05, "Yes", "No"))
+
+
+# Filter out the intercept term if not needed
+# model_coefficients <- model_coefficients %>%
+#   filter(term != "(Intercept)")
+
+# Adjust the levels of 'term' for better ordering (optional)
+term_order <- model_coefficients %>%
+  group_by(term) %>%
+  summarize(mean_estimate = mean(estimate, na.rm = TRUE)) %>%
+  arrange(desc(mean_estimate)) %>%
+  pull(term)
+
+model_coefficients$term <- factor(model_coefficients$term, levels = term_order)
+
+# Set a custom theme
+custom_theme <- theme_bw(base_size = 12) +
+  theme(
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 12),
+    legend.position = "bottom",
+    legend.title = element_text(size = 12),
+    legend.text = element_text(size = 10)
+  )
+
+# Plot comparing variables across all sites
+plot1 <- ggplot(model_coefficients, aes(x = term, y = estimate, ymin = conf.low, ymax = conf.high, color = variable, shape = significant)) +
+  geom_pointrange(position = position_dodge(width = 0.6)) +
+  facet_wrap(~ site, scales = "free_y") +
+  scale_y_log10() +
+  coord_flip() +
+  labs(
+    title = "Comparison of Variables Across Sites",
+    x = "Predictor Variable",
+    y = "Odds Ratio (log scale)",
+    color = "Variable"
+  ) +
+  custom_theme
+
+# Display the plot
+print(plot1)
+
+# Save the plot
+ggsave("output/final/variables_across_sites.png", plot = plot1, width = 10, height = 8, dpi = 300)
+
+# Plot comparing the same variable across different sites
+plot2 <- ggplot(model_coefficients, aes(x = site, y = estimate, ymin = conf.low, ymax = conf.high, color = site, shape = significant)) +
+  geom_pointrange(position = position_dodge(width = 0.6)) +
+  facet_wrap(~ term, scales = "free_y") +
+  scale_y_log10() +
+  coord_flip() +
+  labs(
+    title = "Effect of Each Predictor Variable Across Sites",
+    x = "Site",
+    y = "Odds Ratio (log scale)",
+    color = "Site"
+  ) +
+  custom_theme
+
+# Display the plot
+print(plot2)
+
+# Save the plot
+ggsave("output/final/variables_by_site.png", plot = plot2, width = 10, height = 8, dpi = 300)
+
+
+
+
+```
+
+## Daily Mortality Models
+
+```{r}
+
+# Define the directory containing the CSV files
+data_dir <- "aggregated_data"
+
+# List all CSV files that match the pattern 'model_coefficients__*.csv'
+files <- list.files(path = data_dir, pattern = "^model_coefficients_daily__.*\\.csv$", full.names = TRUE)
+
+# Read all CSV files and combine them into a single data frame
+model_coefficients_list <- lapply(files, read_csv)
+
+# Combine all data frames into one
+model_coefficients <- bind_rows(model_coefficients_list)
+
+# Ensure that 'term', 'variable', and 'site' are factors for plotting purposes
+model_coefficients <- model_coefficients %>%
+  mutate(
+    term = as.factor(term),
+    variable = as.factor(variable),
+    site = as.factor(site)
+  ) %>%
+  filter(term != "(Intercept)")  # Exclude intercept term
+
+# Create forest plots
+ggplot(model_coefficients, aes(x = term, y = estimate, ymin = conf.low, ymax = conf.high, color = variable)) +
+  geom_pointrange(position = position_dodge(width = 0.6)) +
+  facet_wrap(~ site, scales = "free_y") +
+  scale_y_log10() +
+  coord_flip() +
+  labs(
+    title = "Comparison of Variables Across Sites",
+    x = "Predictor Variable",
+    y = "Odds Ratio (log scale)",
+    color = "Variable"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 12),
+    legend.position = "bottom",
+    legend.title = element_text(size = 12),
+    legend.text = element_text(size = 10)
+  )
+
+# Save the plot
+ggsave("output/final/variables_across_sites.png", width = 10, height = 8, dpi = 300)
+```
+
+# Abstract
+
+## Introduction
+
+Patient outcomes are determined by many factors other than their
+critical illness.
+
+These include processes of care and institutional factors.
+[@kerlin_physician-level_2018; @Gaieski_2014_Therelationshipbetween]
+
+Hospital variation in critical care outcomes
+[@Merchant__2014__Hospitalvariationin; @Vigen2014;
+@Kahn__2006__Hospitalvolumeand] and processes of care
+[@Vranas__2020__TheAssociationof] exist, but the extent to which this
+variation may affect research is less well known. We sought to explore
+the underlying variation in care delivery and prediction methodology in
+mechanically ventilated patients with acute respiratory failure.
+
+## Methods

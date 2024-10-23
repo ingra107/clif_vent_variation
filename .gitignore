@@ -2,5 +2,9 @@
 .Rproj.user
 .parquet
 .Rprofile
+.bib
+.Rhistory
 output/intermediate/
 output/final/
+abstract_aggregation_ATS_2024.html
+aggregate_data

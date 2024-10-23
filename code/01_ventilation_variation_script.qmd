@@ -88,6 +88,9 @@ editor_options:
   library(finalfit)
 
 
+
+select <- dplyr::select
+
  # c("ggthemes","styler","writexl","pandoc","duckdb","zoo","fuzzyjoin")
 # install_if_missing <- function(package) {
 #   if (!require(package, character.only = TRUE)) {
@@ -1823,7 +1826,7 @@ mode_hospital_summary_table <- df_hourly_resp_support |>
   arrange(-count) |> 
   ungroup()
 
-write.csv(mode_hospital_summary_table, paste0("output/final/mode_hospital_summary_table_",site_name,".csv"), row.names = FALSE)
+write.csv(mode_hospital_summary_table, paste0("output/final/mode_hospital_summary_table__",site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
 
 
 ##~~~~~~~~~~~~~
@@ -1852,7 +1855,7 @@ test_mode <- mode_hourly_resp_support_table |>
   uncount(n) 
 
 ### A FINAL TABLE
-write.csv(mode_hourly_resp_support_table, paste0("output/final/mode_hourly_resp_support_table_",site_name, "_",Sys.Date(),".csv"), row.names = FALSE)
+write.csv(mode_hourly_resp_support_table, paste0("output/final/mode_hourly_resp_support_table__",site_name, "_", Sys.Date(),".csv"), row.names = FALSE)
 
 ```
 
@@ -2023,7 +2026,7 @@ test_ltvv <- ltvv_variation_table |>
   uncount(n) 
 
 ### A FINAL TABLE
-write.csv(ltvv_variation_table, paste0("output/final/ltvv_variation_table_",site_name,"_", Sys.Date(),".csv"), row.names = FALSE)
+write.csv(ltvv_variation_table, paste0("output/final/ltvv_variation_table__",site_name,"_", Sys.Date(),".csv"), row.names = FALSE)
 ```
 
 
@@ -2117,7 +2120,7 @@ clif_demographics_table_start <- df_hourly_resp_support |>
         grepl("black|african[-]american", race_category, ignore.case = TRUE)   , "Black",
         grepl("white|caucasian", race_category, ignore.case = TRUE)            , "White",
         grepl("asian", race_category, ignore.case = TRUE)                      , "Asian",
-        default                                                       = "Other"
+        default                                                                = "Other"
       ),
     
     # fixing up ethnicity_category
@@ -2185,7 +2188,7 @@ characteristics <- colnames(table_summary)
 # leaving it without transposing it yet
 table_summary
 
-write.csv(table_summary, paste0("output/final/hospital_table1_summary_", site_name,"_", Sys.Date(),".csv"), row.names = FALSE)
+write.csv(table_summary, paste0("output/final/hospital_table1_summary__", site_name,"_", Sys.Date(),".csv"), row.names = FALSE)
 
 ```
 
@@ -2226,7 +2229,7 @@ test_ltvv_female_table <- ltvv_female_table |>
   uncount(n) 
 
 ### A FINAL TABLE
-write.csv(ltvv_female_table, paste0("output/final/ltvv_female_table_",site_name,"_", Sys.Date(),".csv"), row.names = FALSE)
+write.csv(ltvv_female_table, paste0("output/final/ltvv_female_table__",site_name,"_", Sys.Date(),".csv"), row.names = FALSE)
   
 
 
@@ -3606,10 +3609,17 @@ death_or_hospice_01 <- clif_hospitalization |>   # make dead/hospice column
 
 ##Oxygenation index
 ```{r}
-df_oxygenation_index_analysis_prep <- df_hourly_resp_support |>
+df_oxygenation_index_analysis_prep1 <- df_hourly_resp_support |>
   mutate(vent_01 = fifelse(device_category %in% c("imv", "trach collar"), 1, 0)) |> 
   mutate(extubated_hour = fifelse(vent_01 == 0, 1, 0)) |> 
   mutate(recorded_dttm = ymd_h(paste(recorded_date, recorded_hour))) |> 
+  
+  # take away people without ANY days of ventialtion
+  mutate(sum_vent_01 = fsum(vent_01, na.rm = TRUE),
+                           .by = "clif_hospitalizations_joined_id") |> 
+  
+  # at least 24hr of ventilation
+  filter(sum_vent_01 >= 24) |> 
 
   # get first intubation time
   group_by(clif_hospitalizations_joined_id, vent_episode_id) |> 
@@ -3630,8 +3640,11 @@ df_oxygenation_index_analysis_prep <- df_hourly_resp_support |>
   
   ungroup() |> 
   
-  left_join(death_or_hospice_01) |> 
-  
+  left_join(death_or_hospice_01) 
+
+
+
+df_oxygenation_index_analysis_prep <- df_oxygenation_index_analysis_prep1 |> 
   # keep first episode of ventilation
   filter(vent_episode_id == 1, vent_01 == 1) |> 
   
@@ -3664,6 +3677,11 @@ first_intubation_data <- df_oxygenation_index_analysis_prep |>
 
   # Filter data for the first intubation
   filter(vent_episode_id == 1)
+
+
+
+
+
 ```
 
 ## oxygenation index stuff
@@ -3781,7 +3799,7 @@ model_data <- model_data %>%
 ```
 
 
-## regression function / finalfit
+## Basic PF, SF, LAPS2, regression function / finalfit
 ```{r}
 
 run_analysis_for_variable_finalfit <- function(var_name, interaction_term = FALSE) {
@@ -3846,7 +3864,7 @@ run_analysis_for_variable_finalfit <- function(var_name, interaction_term = FALS
   
   
   if (interaction_term) {
-    explanatory <- c("worst_24hr*delta_var", explanatory[-c(1, 2)])  # Add interaction term
+    explanatory <- c("worst_24hr*delta_var", explanatory[!(explanatory %in% c("worst_24hr", "delta_var"))])
   }
   
   
@@ -3879,7 +3897,7 @@ run_analysis_for_variable_finalfit <- function(var_name, interaction_term = FALS
   
   # Save the table to a file (optional)
   suffix <- ifelse(interaction_term, "interaction", "no_interaction")
-  gtsave(tbl, filename = paste0("output/final/finalfit_", var_name, "_", suffix, "_table_", Sys.Date(), ".html"))
+  gtsave(tbl, filename = paste0("output/intermediate/finalfit__", var_name, "_", suffix, "_table_", Sys.Date(), ".html"))
   
   # Plot the odds ratio plot
   or_plot <- model_data |> 
@@ -3889,7 +3907,20 @@ run_analysis_for_variable_finalfit <- function(var_name, interaction_term = FALS
   # Display and save the plot
   print(or_plot)
   
-  ggsave(paste0("output/intermediate/forest_plot_finalfit_", var_name, "_", suffix, ".png"), plot = or_plot)
+  ggsave(paste0("output/intermediate/forest_plot_finalfit__", var_name, "_", suffix, ".png"), plot = or_plot)
+  
+  # --- Extract Coefficients and Confidence Intervals ---
+  
+  # Extract coefficients and confidence intervals
+  tidy_fit <- tidy(fit, conf.int = TRUE, exponentiate = TRUE)
+  
+  # Add a column for the variable name
+  tidy_fit <- tidy_fit %>%
+    mutate(variable = var_name,
+           site = site_name) 
+  
+    write.csv(tidy_fit, file = paste0("output/final/model_coefficients__", var_name, "__", suffix, "__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
+
   
   return(fit)
 }
@@ -3911,6 +3942,387 @@ for (var in variables) {
   # run_analysis_for_variable_finalfit(var, interaction_term = TRUE)
   
 }
+
+```
+
+# Daily PF, SF, LAPS2 regression Mort / VFDs
+
+```{r}
+
+
+
+## prep1 is before we lose all the data after the first vent episode
+intubation_data <- df_oxygenation_index_analysis_prep1 |> 
+    dplyr::select(-sex_category) |> 
+  left_join(clif_patient |> dplyr::select(-hospitalization_id) |> distinct()) |> 
+  left_join(df_pf_ratio |> dplyr::select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, pf_ratio) |> distinct()) |>
+  left_join(df_sf_ratio |> dplyr::select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, sf_ratio) |> distinct()) |>
+  left_join(df_laps2_scores |> dplyr::select(clif_hospitalizations_joined_id, recorded_date, laps2) |> distinct()) |> 
+  left_join(clif_hospitalization |> dplyr::select(clif_hospitalizations_joined_id, age_at_admission, admission_dttm, discharge_dttm
+                                           # admission_type_category
+                                           ) |> distinct()) |> 
+  
+  # getting new hour seq from start of MV
+  group_by(clif_hospitalizations_joined_id) |> 
+  mutate(hour_sequence_from_first_vent_to_discharge = 
+           fcumsum(!is.na(clif_hospitalizations_joined_id), fill = TRUE)) |> 
+    # Add 'day' variable (starting from 1)
+    mutate(day = floor(hour_sequence_from_first_vent_to_discharge / 24.0001) + 1) |> 
+  mutate(htvv = ifelse(tidal_volume_set > (8 * ibw), 1, 0)) |>
+  group_by(clif_hospitalizations_joined_id, day) |> 
+  mutate(hours_in_that_day = n()) |> 
+  mutate(htvv_daily_percent = fsum(htvv, na.rm = TRUE) / hours_in_that_day ) |> 
+  mutate(htvv_daily_percent = fifelse(is.na(htvv_daily_percent), 0, htvv_daily_percent)) |> 
+  ungroup()
+
+
+
+
+# Updated function
+run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interaction_term = FALSE) {
+  
+  ############   ############   ############ 
+  ############   mortality   ############ 
+  ############   ############   ############ 
+  print(paste("Processing variable:", var_name))
+  
+  # Define variable names based on var_name
+  var_daily_name <- paste0("daily_", var_name)
+  delta_var_name <- paste0("delta_", var_name)
+  worst_24hr_name <- paste0(var_name, "_first_24hr")
+  
+  # --- Step 1: Calculate Ventilator-Free Days (VFDs) ---
+  
+  # Calculate total ventilator hours per patient
+  ventilator_hours <- intubation_data %>%
+    group_by(clif_hospitalizations_joined_id) %>%
+    summarise(total_ventilator_hours = sum(vent_01, na.rm = TRUE)) %>%
+    mutate(total_ventilator_days = total_ventilator_hours / 24)
+  
+  # Get mortality status for each patient
+  mortality_data <- intubation_data %>%
+    group_by(clif_hospitalizations_joined_id) %>%
+    summarise(mortality_enc = ffirst(mortality_enc))
+  
+  # Combine ventilator data and mortality data
+  ventilator_data <- ventilator_hours %>%
+    left_join(mortality_data, by = "clif_hospitalizations_joined_id") %>% 
+    mutate(
+      VFDs = case_when(
+        mortality_enc == 1 ~ 0,                        # If the patient died, VFDs = 0
+        total_ventilator_days >= 28 ~ 0,               # If ventilated for >=28 days, VFDs = 0
+        TRUE ~ 28 - total_ventilator_days              # Otherwise, VFDs = 28 - total ventilator days
+      )
+    )
+  
+  # --- Step 2: Aggregate Variable by Day ---
+  
+  # Aggregate the variable by day
+  var_daily <- intubation_data %>%
+    group_by(clif_hospitalizations_joined_id, day, htvv_daily_percent) %>%
+    summarise(!!var_daily_name := agg_func(get(var_name), na.rm = TRUE)) %>%
+    arrange(clif_hospitalizations_joined_id, day) %>%
+    group_by(clif_hospitalizations_joined_id) %>%
+    # Handle missing data by carrying forward previous day's value
+    mutate(!!var_daily_name := zoo::na.locf(!!sym(var_daily_name), na.rm = FALSE)) %>%
+    ungroup()
+  
+  # --- Step 3: Calculate Delta from Previous Day ---
+  
+  var_daily <- var_daily %>%
+    group_by(clif_hospitalizations_joined_id) %>%
+    arrange(day) %>%
+    mutate(!!delta_var_name := !!sym(var_daily_name) - lag(!!sym(var_daily_name))) %>%
+    ungroup()
+  
+  # --- Step 4: Get First 24-Hour Value ---
+  
+  first_day_var <- var_daily %>%
+    filter(day == 1) %>%
+    select(clif_hospitalizations_joined_id, !!worst_24hr_name := !!sym(var_daily_name))
+  
+  # --- Step 5: Prepare the Model Data ---
+  
+  # Use data from day 28 and below
+  model_data_start <- var_daily %>%
+    filter(day <= 28) %>%
+    select(clif_hospitalizations_joined_id, day, !!var_daily_name, !!delta_var_name, htvv_daily_percent)
+  
+  # Combine with first day value
+  model_data <- model_data_start %>%
+    left_join(first_day_var, by = "clif_hospitalizations_joined_id")
+  
+  # Combine with ventilator data and mortality data
+  model_data <- model_data %>%
+    left_join(ventilator_data %>% select(clif_hospitalizations_joined_id, mortality_enc, VFDs), by = "clif_hospitalizations_joined_id")
+  
+  # Add covariates
+  model_data <- model_data %>%
+    left_join(intubation_data %>%
+                group_by(clif_hospitalizations_joined_id) %>%
+                summarise(
+                  age_at_admission = ffirst(age_at_admission),
+                  sex_category = ffirst(str_to_title(sex_category)), 
+                  race_category = ffirst(str_to_title(race_category)), 
+                  hospital_id = ffirst(str_to_title(hospital_id))
+                ), by = "clif_hospitalizations_joined_id")
+  
+  # Ensure model_data is a dataframe
+  model_data <- as.data.frame(model_data)
+  
+  # Convert categorical variables to factors
+  model_data$sex_category <- as.factor(model_data$sex_category)
+  model_data$race_category <- as.factor(model_data$race_category)
+  model_data$hospital_id <- as.factor(model_data$hospital_id)
+  model_data$mortality_enc <- as.factor(model_data$mortality_enc)
+  
+  # --- Step 6: Prepare the Variables for the Model ---
+  
+
+  # Define dependent and explanatory variables
+  dependent <- "mortality_enc"  # You can change this to 'VFDs' if modeling ventilator-free days
+  
+  explanatory <- c(worst_24hr_name, delta_var_name, "age_at_admission", "sex_category", "race_category", "day", "htvv_daily_percent")
+  
+  if (hosp_id_count > 1) {
+    explanatory <- c(explanatory, "hospital_id")
+  }
+  
+  if (interaction_term) {
+    # Add interaction term between worst_24hr and delta_var
+    explanatory <- c(paste0(worst_24hr_name, "*", delta_var_name), explanatory[!(explanatory %in% c(worst_24hr_name, delta_var_name))])
+  }
+  
+  # --- Step 7: Fit the Mixed-Effects Logistic Regression Model ---
+  
+  explanatory_lr <- explanatory
+  form_lr <- paste(dependent, "~", paste(explanatory_lr, collapse = " + "))
+  fit <- glm(formula = as.formula(form_lr), data = model_data, family = binomial(link = "logit"))
+  
+  # Display the formula for the regression
+  print("This is the formula for the regression")
+  print(form_lr)
+  
+  # Print the summary
+  print(summary(fit))
+  
+  # --- Step 8: Generate and Save Regression Table ---
+  
+  # Generate a regression table using tbl_regression
+  tbl <- model_data |> 
+    with(glm(formula = as.formula(form_lr), family = binomial(link = "logit"))) %>%
+    tbl_regression(exponentiate = TRUE) %>%
+    bold_labels() %>%
+    italicize_levels() %>%
+    bold_p() %>%
+    as_gt() %>%
+    opt_vertical_padding(scale = 0.5) %>%
+    opt_row_striping()
+  
+  print(tbl)
+  
+  # Save the table to a file
+  suffix <- ifelse(interaction_term, "interaction", "no_interaction")
+  table_filename <- paste0("output/intermediate/finalfit__", var_name, "_", suffix, "_table_", Sys.Date(), ".html")
+  gtsave(tbl, filename = table_filename)
+  
+  # --- Step 9: Plot and Save Odds Ratio Plot ---
+  
+  # Extract fixed effects coefficients
+  tidy_fit <- broom.mixed::tidy(fit, conf.int = TRUE, exponentiate = TRUE)
+  
+  # Exclude the intercept
+  plot_data <- tidy_fit %>%
+    filter(term != "(Intercept)") %>%
+    mutate(term = factor(term, levels = rev(unique(term)))) %>%
+    mutate(term_label = recode(term,
+      !!worst_24hr_name := paste(var_name, "First 24hr"),
+      !!delta_var_name := paste("Delta", var_name),
+      "htvv_daily_percent" = "Daily % HTVV",
+      "age_at_admission" = "Age at Admission",
+      "sex_categoryFemale" = "Sex: Female",
+      "race_category" = "Race Category",
+      "hospital_id" = "Hospital ID"
+    ))
+  
+  # Plot the odds ratio plot
+  or_plot <- model_data |> 
+    or_plot(dependent, c(explanatory_lr), glmfit = fit, 
+            dependent_label = paste("Outcome: Mortality", var_name)) 
+  
+  
+  plot_filename <- paste0("output/intermediate/forest_plot_finalfit_daily__", var_name, "_", suffix, ".png")
+  ggsave(plot_filename, plot = or_plot)
+  
+  # --- Step 10: Extract Coefficients and Save ---
+
+  
+  tidy_fit <- tidy_fit %>%
+    mutate(variable = var_name,
+           site = site_name)
+  
+  print(tidy_fit)
+  
+  # Save the coefficients to a CSV file
+  coefficients_filename <- paste0("output/final/model_coefficients_daily__", var_name, "__", suffix, "__", site_name, "_", Sys.Date(), ".csv")
+  
+  write.csv(tidy_fit, file = coefficients_filename, row.names = FALSE)
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  ############   ############   ############ 
+  ############   vent free days   ############ 
+  ############   ############   ############ 
+
+  
+  # Combine with first day value
+  model_data <- model_data_start %>%
+    left_join(first_day_var, by = "clif_hospitalizations_joined_id")
+  
+  # Combine with ventilator data and mortality data
+  model_data <- model_data %>%
+    left_join(ventilator_data %>% select(clif_hospitalizations_joined_id, VFDs), by = "clif_hospitalizations_joined_id")
+  
+  # Add covariates
+  model_data <- model_data %>%
+    left_join(intubation_data %>%
+                group_by(clif_hospitalizations_joined_id) %>%
+                summarise(
+                  age_at_admission = ffirst(age_at_admission),
+                  sex_category = ffirst(str_to_title(sex_category)), 
+                  race_category = ffirst(str_to_title(race_category)), 
+                  hospital_id = ffirst(str_to_title(hospital_id))
+                ), by = "clif_hospitalizations_joined_id")
+  
+  # Ensure model_data is a dataframe
+  model_data <- as.data.frame(model_data)
+  
+  # Convert categorical variables to factors
+  model_data$sex_category <- as.factor(model_data$sex_category)
+  model_data$race_category <- as.factor(model_data$race_category)
+  model_data$hospital_id <- as.factor(model_data$hospital_id)
+  
+  # --- Step 6: Prepare the Variables for the Model ---
+
+  # Define dependent and explanatory variables
+  dependent <- "VFDs"
+  
+  explanatory <- c(worst_24hr_name, delta_var_name, "age_at_admission", "sex_category", "race_category", "htvv_daily_percent")
+  
+  if (hosp_id_count > 1) {
+    explanatory <- c(explanatory, "hospital_id")
+  }
+  
+  if (interaction_term) {
+    # Add interaction term between worst_24hr and delta_var
+    explanatory <- c(paste0(worst_24hr_name, "*", delta_var_name), explanatory[!(explanatory %in% c(worst_24hr_name, delta_var_name))])
+  }
+  
+  # --- Step 7: Fit the Negative Binomial Regression Model ---
+  
+  explanatory_lr <- explanatory
+  form_lr <- paste(dependent, "~", paste(explanatory_lr, collapse = " + "))
+  fit <- MASS::glm.nb(formula = as.formula(form_lr), data = model_data)
+  
+  # Display the formula for the regression
+  print("This is the formula for the regression")
+  print(form_lr)
+  
+  # Print the summary
+  print(summary(fit))
+  
+  # --- Step 8: Generate and Save Regression Table ---
+  
+
+  # Generate a regression table using tbl_regression
+  tbl <- model_data |> 
+    with(MASS::glm.nb(formula = as.formula(form_lr))) %>%
+    tbl_regression(exponentiate = TRUE) %>%
+    bold_labels() %>%
+    italicize_levels() %>%
+    bold_p() %>%
+    as_gt() %>%
+    opt_vertical_padding(scale = 0.5) %>%
+    opt_row_striping()
+  
+  print(tbl)
+  
+  # Save the table to a file
+  suffix <- ifelse(interaction_term, "interaction", "no_interaction")
+  table_filename <- paste0("output/intermediate/finalfit_vfds__", var_name, "_", suffix, "_table_", Sys.Date(), ".html")
+  gtsave(as_gt(tbl), filename = table_filename)
+  
+  # --- Step 9: Plot and Save Coefficient Plot ---
+  
+  # Extract coefficients
+  tidy_fit <- tidy(fit, conf.int = TRUE, exponentiate = TRUE)
+  
+  # Exclude the intercept
+  plot_data <- tidy_fit %>%
+    filter(term != "(Intercept)") %>%
+    mutate(term = factor(term, levels = rev(unique(term))))
+  
+  # Create the coefficient plot
+  coef_plot <- ggplot(plot_data, aes(x = term, y = estimate, ymin = conf.low, ymax = conf.high)) +
+    geom_pointrange() +
+    coord_flip() +
+    labs(x = "Variables", y = "Incidence Rate Ratio", title = paste("Incidence Rate Ratios for VFDs -", var_name)) +
+    theme_bw()
+  
+  # Display and save the plot
+  print(coef_plot)
+  
+  plot_filename <- paste0("output/intermediate/coef_plot_vfds__", var_name, "_", suffix, ".png")
+  ggsave(plot_filename, plot = coef_plot)
+  
+  # --- Step 10: Extract Coefficients and Save ---
+  
+  tidy_fit <- tidy_fit %>%
+    mutate(variable = var_name,
+           site = site_name)
+  
+  # Save the coefficients to a CSV file
+  coefficients_filename <- paste0("output/final/model_coefficients_vfds__", var_name, "__", suffix, "__", site_name, "_", Sys.Date(), ".csv")
+  write.csv(tidy_fit, file = coefficients_filename, row.names = FALSE)
+  
+  
+  
+  
+  
+  return(fit)
+}
+
+# --- Run the Analysis for Each Variable ---
+
+variables <- list(
+  list(var_name = "sf_ratio", agg_func = fmin),
+  list(var_name = "pf_ratio", agg_func = fmin),
+  list(var_name = "laps2", agg_func = fmax)
+)
+
+if ("mean_airway_pressure_obs" %in% names(intubation_data)) {
+  variables <- append(variables, list(list(var_name = "oxygenation_index", agg_func = fmin)))
+}
+
+for (var_info in variables) {
+  
+  var_name <- var_info$var_name
+  agg_func <- var_info$agg_func
+  
+  # Without interaction
+  run_daily_analysis_for_variable_finalfit(var_name, agg_func, interaction_term = FALSE)
+  
+  # Uncomment the following line if you want to run with interaction term
+  # run_daily_analysis_for_variable_finalfit(var_name, agg_func, interaction_term = TRUE)
+}
+
+
 
 ```
 
@@ -4176,7 +4588,7 @@ results_to_save <- model_results %>%
     PValue
   )
 
-write.csv(results_to_save, paste0("output/final/sex_category_ltvv_", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
+write.csv(results_to_save, paste0("output/final/sex_category_ltvv__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
 
 # Create a sequence of height values for prediction
 new_height <- seq(min(htvv_analysis$height_cm), max(htvv_analysis$height_cm), length.out = 100)
