@@ -1907,78 +1907,7 @@ ggplot(
 
 
 
-## Fig 2 Trach Variation --> Estimated Day of ventilation of Trach placement by hospitals
-
-
-<!-- ```{r} -->
-
-<!-- # clean up trach days -->
-<!--  trach_variation <- df_hourly_resp_support |>  -->
-<!--   filter(!is.na(vent_days_before_trach)) |>  -->
-<!--   dplyr::select(clif_hospitalizations_joined_id, trach_hospital_id, vent_days_before_trach) |>  -->
-<!--   ungroup() |> -->
-<!--   distinct() -->
-
-
-<!-- trach_variation_table <- trach_variation |> -->
-<!--   count(trach_hospital_id, vent_days_before_trach) |>  -->
-<!--   mutate(health_system = site_name) -->
-
-<!-- test_trach <- trach_variation_table |>  -->
-<!--   uncount(n)  -->
-
-<!-- write_csv(trach_variation_table, paste0("output/final/trach_variation_table_",site_name,"_",Sys.Date(),".csv")) -->
-
-<!-- ``` -->
-
-
-<!-- ```{r} -->
-
-<!-- # Nick will run the below on the table you saved with all data together -->
-<!-- # ... so no need to save the graph -->
-<!-- # Left the code  so you can explore your own data -->
-<!-- #  -->
-
-<!-- trach_excl_early_trach <- trach_variation |>  -->
-<!--   group_by(trach_hospital_id) |>  -->
-<!--   mutate(mean_vent_days_before_trach = median(vent_days_before_trach, na.rm = TRUE)) |>  -->
-<!--   # these are early trach... take them out -->
-<!--   filter(vent_days_before_trach > 3) |> -->
-<!--   # these are ltachs -->
-<!--   filter(mean_vent_days_before_trach >5) -->
-
-<!-- # Create a boxplot -->
-<!-- ggplot(trach_excl_early_trach, aes(x = trach_hospital_id, y = vent_days_before_trach)) + -->
-<!--   geom_boxplot() + -->
-<!--   labs(title = "Variation in Tracheostomy Ventilator Day Across Hospitals", -->
-<!--        x = "Hospital", -->
-<!--        y = "Ventilator Day for Tracheostomy") -->
-
-
-<!-- # Create a violin plot -->
-<!-- ggplot(trach_variation, aes(x = trach_hospital_id, y = vent_days_before_trach)) + -->
-<!--   geom_violin() + -->
-<!--   labs(title = "Variation in Tracheostomy Ventilator Day Across Hospitals", -->
-<!--        x = "Hospital", -->
-<!--        y = "Ventilator Day for Tracheostomy") -->
-
-
-<!-- ggplot(trach_variation, aes(x = trach_hospital_id, y = vent_days_before_trach, fill = factor(trach_hospital_id))) + -->
-<!--   # geom_boxplot(width = 0.1, fill = "white", outlier.shape = NA) + # Hide outliers for the boxplot -->
-<!--   # geom_jitter(width = 0.2, size = 1.5, alpha = 0.4) + -->
-<!--   geom_violin(adjust = 2) + -->
-<!--   labs(title = "Variation in Tracheostomy Ventilator Day Across Hospitals", -->
-<!--        x = "Hospital", -->
-<!--        y = "Ventilator Day for Tracheostomy") + -->
-<!--   theme(axis.text.x = element_text(angle = 45, hjust = 1)) + -->
-<!--   # theme_light() + -->
-<!--   guides(fill = guide_legend(title = "Hospital ID")) -->
-
-
-<!-- # trach_variation |> filter(vent_days_before_trach > 30) |> View() -->
-
-<!-- ``` -->
-
+## Fig 2 Trach Variation --> Estimated Day of ventilation of Trach placement by hospitals (removed)
 
 ## Fig 3 Initial Set Volume / ibw Variation 
 
@@ -2510,6 +2439,19 @@ df_encounter_laps2_temp1 <- clif_hospitalization |>
 if(!any(clif_labs$lab_category == "anion_gap")){
   
   print("no anion_gap found... we will make one for you!!")
+  
+} else {
+  
+  print("you already have anion gap")
+  
+  message("we are going to remove anion_gap and recreate it for you")
+  message("this way... all our analyses are the same")
+  
+  clif_labs <- clif_labs |> 
+    filter(lab_category != "anion_gap")
+
+    print("Anion gap removed... please proceed!!")
+}
 
 # Set a time tolerance, e.g., 1 hour
 time_tolerance <- hours(1)
@@ -2567,11 +2509,7 @@ clif_labs <- clif_labs |>
               bind_rows(anion_gap_df)
 
 
-} else {
-  
-  print("you already have anion gap")
-  print("please proceed!!")
-}
+
 
 ```
 
