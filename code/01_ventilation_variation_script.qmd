@@ -560,6 +560,25 @@ df_cohort_keep <- clif_hospitalization |>
   dplyr::select(clif_hospitalizations_joined_id, hospitalization_id, patient_id) |> 
   distinct()
   
+# dropping hospitals with < 100 encounters
+hospital_keep <- read_data("clif_adt") %>%
+  right_join(df_cohort_keep) |> 
+  filter(location_category == "icu") |> 
+  arrange(clif_hospitalizations_joined_id, in_dttm) |> 
+  distinct(clif_hospitalizations_joined_id, hospital_id) |> 
+  mutate(hospital_id_count = n(),
+         .by = "hospital_id") |>  
+  filter(hospital_id_count > 100)
+  
+# Count the number of encounters per hospital_id and assign "Hospital 1", "Hospital 2", etc.
+hospital_order <- hospital_keep |> 
+  count(hospital_id, name = "encounters") %>%
+  arrange(desc(encounters)) %>%
+  mutate(hospital_label = paste0("Hospital ", site_name," ", row_number()))
+
+# use this in analytic sets after we ID the ICU/VENT hosp to filter out hospitals that don't have enough traffic
+# filter(hospital_id %in% hospital_filter)
+hospital_filter <- hospital_order |> pull()
 
 # narrowing down clif_hospitaliation to the appropriate cohort
 clif_hospitalization <- clif_hospitalization |> 
@@ -3552,6 +3571,9 @@ death_or_hospice_01 <- clif_hospitalization |>   # make dead/hospice column
 ##Oxygenation index
 ```{r}
 df_oxygenation_index_analysis_prep1 <- df_hourly_resp_support |>
+  # only hospitals that have enough traffic
+  filter(hospital_id %in% hospital_filter) |> 
+  
   mutate(vent_01 = fifelse(device_category %in% c("imv", "trach collar"), 1, 0)) |> 
   mutate(extubated_hour = fifelse(vent_01 == 0, 1, 0)) |> 
   mutate(recorded_dttm = ymd_h(paste(recorded_date, recorded_hour))) |> 
@@ -3607,6 +3629,12 @@ df_oxygenation_index_analysis_prep <- df_oxygenation_index_analysis_prep1 |>
 ```{r}
 
 first_intubation_data <- df_oxygenation_index_analysis_prep |>
+
+  # get rid of those with NO tidal volumes ever
+  group_by(clif_hospitalizations_joined_id) %>%
+  filter(!all(is.na(tidal_volume_set))) %>%
+  ungroup() |> 
+
   mutate(vent_hours_per_seq = difftime(last_vent_time, first_vent_time, units = "hours")) |>
   dplyr::select(-sex_category) |> 
   left_join(clif_patient |> dplyr::select(-hospitalization_id) |> distinct()) |> 
@@ -3896,6 +3924,11 @@ for (var in variables) {
 ## prep1 is before we lose all the data after the first vent episode
 intubation_data <- df_oxygenation_index_analysis_prep1 |> 
     dplyr::select(-sex_category) |> 
+  
+  # get rid of those with no tidal volumes ever
+  group_by(clif_hospitalizations_joined_id) %>%
+  filter(!all(is.na(tidal_volume_set))) %>%
+  ungroup()
   
   # joining things together
   left_join(clif_patient |> dplyr::select(-hospitalization_id) |> distinct()) |> 
@@ -4359,7 +4392,7 @@ fit_mortality <- survfit(cox_48hr)
 plot(fit_mortality, main = "Survival Curve for Mortality", xlab = "Ventilation Hours", ylab = "Survival Probability")
 
 
-cox.zph(cox_48hr)
+# cox.zph(cox_48hr)
 
 duration_filter <- 2000
 htvv_strata <- htvv_step1 %>%
@@ -4460,6 +4493,7 @@ clif_labs_htvv <- clif_labs %>%
 
 # Prepare the data (as before)
 htvv_analysis <- htvv_step1 %>%
+
   dplyr::select(
     vt_per_kg_ibw,
     sex_category,
