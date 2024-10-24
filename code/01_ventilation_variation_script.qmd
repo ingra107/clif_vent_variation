@@ -4105,8 +4105,9 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   model_data$mortality_enc <- as.factor(model_data$mortality_enc)
   
   # --- Step 6: Prepare the Variables for the Model ---
+  message("peed at the data")
+  head(model_data)
   
-
   # Define dependent and explanatory variables
   dependent <- "mortality_enc"  # You can change this to 'VFDs' if modeling ventilator-free days
   
@@ -4125,7 +4126,8 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   
   explanatory_lr <- explanatory
   form_lr <- paste(dependent, "~", paste(explanatory_lr, collapse = " + "))
-  fit <- glm(formula = as.formula(form_lr), data = model_data, family = binomial(link = "logit"))
+  fit <- model_data |> 
+    with(glm(formula = as.formula(form_lr), family = binomial(link = "logit")))
   
   # Display the formula for the regression
   message("This is the formula for the regression")
@@ -4139,7 +4141,7 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   message("starting the table for Mortality Model")
   # Generate a regression table using tbl_regression
   tbl <- model_data |> 
-    with(glm(formula = as.formula(form_lr), family = binomial(link = "logit"))) %>%
+    with(fit) %>%
     tbl_regression(exponentiate = TRUE) %>%
     bold_labels() %>%
     italicize_levels() %>%
@@ -4232,6 +4234,8 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   model_data$hospital_id <- as.factor(model_data$hospital_id)
   
   # --- Step 6: Prepare the Variables for the Model ---
+  message("peed at the data VFDs")
+  head(model_data)
 
   # Define dependent and explanatory variables
   dependent <- "VFDs"
