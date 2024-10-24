@@ -3253,8 +3253,10 @@ df_laps_calc <- df_laps2_final |>
   
 df_laps2_scores <- df_laps_calc |> 
   group_by(clif_hospitalizations_joined_id, recorded_date) |> 
+  
+  mutate(laps2 = 0) |> 
+  
   mutate(
-    laps2 = 0,
     # lactic_acid and pH 
     laps2 = fcase(
       
@@ -4009,7 +4011,7 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   ############   ############   ############ 
   ############   mortality   ############ 
   ############   ############   ############ 
-  print(paste("Processing variable:", var_name))
+  message(paste("Processing variable:", var_name))
   
   # Define variable names based on var_name
   var_daily_name <- paste0("daily_", var_name)
@@ -4046,7 +4048,7 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   var_daily <- intubation_data %>%
     group_by(clif_hospitalizations_joined_id, day, htvv_daily_percent) %>%
     summarise(!!var_daily_name := agg_func(get(var_name), na.rm = TRUE)) %>%
-    ungroup()
+    ungroup() |> 
     arrange(clif_hospitalizations_joined_id, day) %>%
     group_by(clif_hospitalizations_joined_id) %>%
     # Handle missing data by carrying forward previous day's value
