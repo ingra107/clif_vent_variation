@@ -86,6 +86,7 @@ editor_options:
   library(merTools)
   library(lme4)
   library(finalfit)
+  library(furrr)
 
 
 
@@ -910,9 +911,22 @@ if(is.character(clif_vitals$vital_value)){
 # if we set all the new seq hours to 59:59 then you can fill those in without risking other data when you fill in and do distinct (take the first of the hour for everything).  Remember.  Even hours with 1 data will have a new hour seq row that may be before or after the data... so doing the 59:59 puts it at the end!!!
 # 
 
+# Function to create a sequence of dates between start_date and end_date
+hour_sequence_function <- function(start_time, end_time) {
+  seq(start_time, end_time, by = "1 hour")
+}
+
+setDTthreads(0)
+
 ni_tic()
 hour_sequence <- clif_respiratory_support |> 
+  
   group_by(clif_hospitalizations_joined_id)  |> 
+  mutate(first_dttm = fmin(recorded_dttm),
+         last_dttm = fmax(recorded_dttm)) |> 
+    mutate(recorded_dttms = future_map2(first_dttm, last_dttm, hour_sequence_function)) |> 
+    unnest(recorded_dttm = recorded_dttms) 
+
   reframe(recorded_dttm = seq(fmin(recorded_dttm), fmax(recorded_dttm), by = "1 hour")) |> 
   # Adjust to the last second of the hour using lubridate's floor_date
   mutate(recorded_dttm = floor_date(recorded_dttm, "hour") + minutes(59) + seconds(59)) |> 
@@ -923,7 +937,20 @@ ni_toc()
 
 ```
 
+## SBT
+```{r}
+sbt <- clif_respiratory_support |> 
+  filter(mode_category == "pressure support/cpap") |> 
+  mutate(sbt = fifelse(mode_category == "pressure support/cpap", 1, 0)) |>
+  full_join(hour_sequence) |> 
+  group_by(clif_hospitalizations_joined_id, recorded_date) |> 
+  mutate(sbt = fmax(sbt, na.rm = T)) |> 
+  ungroup() |> 
+  arrange(clif_hospitalizations_joined_id, recorded_date) |> 
+  distinct(clif_hospitalizations_joined_id, recorded_date, sbt)  
+  
 
+```
 
 ## Quality Check & Clean + Waterfall
 
@@ -3896,7 +3923,7 @@ run_analysis_for_variable_finalfit <- function(var_name, interaction_term = FALS
     mutate(variable = var_name,
            site = site_name) 
   
-    write.csv(tidy_fit, file = paste0("output/final/model_coefficients__", var_name, "__", suffix, "__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
+    write.csv(tidy_fit, file = paste0("output/intermediate/model_coefficients__", var_name, "_", suffix, "__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
 
   
   return(fit)
@@ -3935,7 +3962,7 @@ intubation_data <- df_oxygenation_index_analysis_prep1 |>
   # get rid of those with no tidal volumes ever
   group_by(clif_hospitalizations_joined_id) %>%
   filter(!all(is.na(tidal_volume_set))) %>%
-  ungroup()
+  ungroup() |> 
   
   # joining things together
   left_join(clif_patient |> dplyr::select(-hospitalization_id) |> distinct()) |> 
@@ -4536,7 +4563,7 @@ mixed_model <- lmer(
     sex_category * height_cm +
     age_at_admission +
     laps2 +
-    race_category +
+    # race_category +
     pf_ratio +
     ph +          # Include ph in the model
     pco2 +        # Include pco2 in the model
@@ -4551,7 +4578,7 @@ if (hosp_id_count > 1) {
       sex_category * height_cm +
       age_at_admission +
       laps2 +
-      race_category +
+      # race_category +
       pf_ratio +
       ph +          # Include ph in the model
       pco2 +        # Include pco2 in the model
