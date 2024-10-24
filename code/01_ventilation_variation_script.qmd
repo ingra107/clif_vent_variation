@@ -369,7 +369,9 @@ clif_hospitalization_start <-
   dplyr::select(hospitalization_id, admission_dttm, discharge_dttm, age_at_admission, patient_id, 
          # admission_type_name, 
          # admission_type_category, 
-         discharge_name, discharge_category)
+         discharge_name, discharge_category) |> 
+  mutate(admission_dttm = ymd_hms(admission_dttm)) |> 
+  mutate(discharge_dttm = ymd_hms(discharge_dttm))
 
 
 # getting a keep_list of hospitalization_ids that have vent or trach during their encounter... we will use this right_join the dfs below
@@ -3954,6 +3956,8 @@ for (var in variables) {
 ## prep1 is before we lose all the data after the first vent episode
 intubation_data <- df_oxygenation_index_analysis_prep1 |> 
     dplyr::select(-sex_category) |> 
+  
+  # joining things together
   left_join(clif_patient |> dplyr::select(-hospitalization_id) |> distinct()) |> 
   left_join(df_pf_ratio |> dplyr::select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, pf_ratio) |> distinct()) |>
   left_join(df_sf_ratio |> dplyr::select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, sf_ratio) |> distinct()) |>
@@ -3961,21 +3965,42 @@ intubation_data <- df_oxygenation_index_analysis_prep1 |>
   left_join(clif_hospitalization |> dplyr::select(clif_hospitalizations_joined_id, age_at_admission, admission_dttm, discharge_dttm
                                            # admission_type_category
                                            ) |> distinct()) |> 
-  
   # getting new hour seq from start of MV
   group_by(clif_hospitalizations_joined_id) |> 
   mutate(hour_sequence_from_first_vent_to_discharge = 
            fcumsum(!is.na(clif_hospitalizations_joined_id), fill = TRUE)) |> 
-    # Add 'day' variable (starting from 1)
+  
+  # Add 'day' variable (starting from 1) This will be the start of MV (first episode) includes till discharge
     mutate(day = floor(hour_sequence_from_first_vent_to_discharge / 24.0001) + 1) |> 
+  # calculate if they got high tidal volume exposure
   mutate(htvv = ifelse(tidal_volume_set > (8 * ibw), 1, 0)) |>
+  # calculate rate per day of high tidal volume exposure
   group_by(clif_hospitalizations_joined_id, day) |> 
   mutate(hours_in_that_day = n()) |> 
   mutate(htvv_daily_percent = fsum(htvv, na.rm = TRUE) / hours_in_that_day ) |> 
+  
+  # if NA... then its zero for high tidal volume exposure
+  # May need to rethink this... we can't DROP them because we want to calc vent free days later
+  # But maybe we just leave as NA and then it will drop from analysis later?
   mutate(htvv_daily_percent = fifelse(is.na(htvv_daily_percent), 0, htvv_daily_percent)) |> 
   ungroup()
 
 
+### a way to test var_daily that is in the function below ##
+  # Aggregate the variable by day
+  var_daily_testing <- intubation_data %>%
+    group_by(clif_hospitalizations_joined_id, day, htvv_daily_percent) %>%
+    summarise(laps2_daily =  fmax(laps2, na.rm = TRUE)) %>%
+    arrange(clif_hospitalizations_joined_id, day) %>%
+    group_by(clif_hospitalizations_joined_id) %>%
+    # Handle missing data by carrying forward previous day's value
+    mutate(laps2_daily = zoo::na.locf(laps2_daily, na.rm = FALSE)) %>%
+    group_by(clif_hospitalizations_joined_id) %>%
+    arrange(clif_hospitalizations_joined_id, day) %>%
+    # flag fill means that on day 1 it will subtract by itself (there is no lag) and delta will be zero
+    mutate(delta_laps2_daily = laps2_daily - flag(laps2_daily, fill = laps2_daily)) %>%
+    ungroup()
+### a way to test var_daily #################################  
 
 
 # Updated function
@@ -4021,6 +4046,7 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   var_daily <- intubation_data %>%
     group_by(clif_hospitalizations_joined_id, day, htvv_daily_percent) %>%
     summarise(!!var_daily_name := agg_func(get(var_name), na.rm = TRUE)) %>%
+    ungroup()
     arrange(clif_hospitalizations_joined_id, day) %>%
     group_by(clif_hospitalizations_joined_id) %>%
     # Handle missing data by carrying forward previous day's value
@@ -4031,8 +4057,8 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   
   var_daily <- var_daily %>%
     group_by(clif_hospitalizations_joined_id) %>%
-    arrange(day) %>%
-    mutate(!!delta_var_name := !!sym(var_daily_name) - lag(!!sym(var_daily_name))) %>%
+    arrange(clif_hospitalizations_joined_id, day) %>%
+    mutate(!!delta_var_name := !!sym(var_daily_name) - flag(!!sym(var_daily_name), fill = !!sym(var_daily_name))) %>%
     ungroup()
   
   # --- Step 4: Get First 24-Hour Value ---
@@ -4100,7 +4126,7 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   fit <- glm(formula = as.formula(form_lr), data = model_data, family = binomial(link = "logit"))
   
   # Display the formula for the regression
-  print("This is the formula for the regression")
+  message("This is the formula for the regression")
   print(form_lr)
   
   # Print the summary
@@ -4108,6 +4134,7 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   
   # --- Step 8: Generate and Save Regression Table ---
   
+  message("starting the table for Mortality Model")
   # Generate a regression table using tbl_regression
   tbl <- model_data |> 
     with(glm(formula = as.formula(form_lr), family = binomial(link = "logit"))) %>%
@@ -4125,7 +4152,7 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   suffix <- ifelse(interaction_term, "interaction", "no_interaction")
   table_filename <- paste0("output/intermediate/finalfit__", var_name, "_", suffix, "_table_", Sys.Date(), ".html")
   gtsave(tbl, filename = table_filename)
-  
+  message("just saved mortality gt table")
   # --- Step 9: Plot and Save Odds Ratio Plot ---
   
   # Extract fixed effects coefficients
@@ -4153,7 +4180,7 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   
   plot_filename <- paste0("output/intermediate/forest_plot_finalfit_daily__", var_name, "_", suffix, ".png")
   ggsave(plot_filename, plot = or_plot)
-  
+  message("just saved OR plot for mortality")
   # --- Step 10: Extract Coefficients and Save ---
 
   
@@ -4167,13 +4194,7 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   coefficients_filename <- paste0("output/final/model_coefficients_daily__", var_name, "__", suffix, "__", site_name, "_", Sys.Date(), ".csv")
   
   write.csv(tidy_fit, file = coefficients_filename, row.names = FALSE)
-  
-  
-  
-  
-  
-  
-  
+  message("just saved mortality coefs in the final folder!")
   
   
   ############   ############   ############ 
@@ -4228,10 +4249,10 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   
   explanatory_lr <- explanatory
   form_lr <- paste(dependent, "~", paste(explanatory_lr, collapse = " + "))
-  fit <- MASS::glm.nb(formula = as.formula(form_lr), data = model_data)
+  fit <- lm(formula = as.formula(form_lr), data = model_data)
   
   # Display the formula for the regression
-  print("This is the formula for the regression")
+  message("This is the formula for the VFD regression")
   print(form_lr)
   
   # Print the summary
@@ -4239,11 +4260,12 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   
   # --- Step 8: Generate and Save Regression Table ---
   
+  message("starting vent free days table")
 
   # Generate a regression table using tbl_regression
   tbl <- model_data |> 
-    with(MASS::glm.nb(formula = as.formula(form_lr))) %>%
-    tbl_regression(exponentiate = TRUE) %>%
+    with(lm(formula = as.formula(form_lr))) %>%
+    tbl_regression() %>%
     bold_labels() %>%
     italicize_levels() %>%
     bold_p() %>%
@@ -4256,8 +4278,8 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   # Save the table to a file
   suffix <- ifelse(interaction_term, "interaction", "no_interaction")
   table_filename <- paste0("output/intermediate/finalfit_vfds__", var_name, "_", suffix, "_table_", Sys.Date(), ".html")
-  gtsave(as_gt(tbl), filename = table_filename)
-  
+  gtsave(tbl, filename = table_filename)
+  message("just saved the vent free days table")
   # --- Step 9: Plot and Save Coefficient Plot ---
   
   # Extract coefficients
@@ -4275,6 +4297,7 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
     labs(x = "Variables", y = "Incidence Rate Ratio", title = paste("Incidence Rate Ratios for VFDs -", var_name)) +
     theme_bw()
   
+  message("here is the plot for vent free days")
   # Display and save the plot
   print(coef_plot)
   
@@ -4290,7 +4313,7 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   # Save the coefficients to a CSV file
   coefficients_filename <- paste0("output/final/model_coefficients_vfds__", var_name, "__", suffix, "__", site_name, "_", Sys.Date(), ".csv")
   write.csv(tidy_fit, file = coefficients_filename, row.names = FALSE)
-  
+  message("just saved the coefs for vent free days!")
   
   
   
