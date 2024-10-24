@@ -563,13 +563,20 @@ df_cohort_keep <- clif_hospitalization |>
 # dropping hospitals with < 100 encounters
 hospital_keep <- read_data("clif_adt") %>%
   right_join(df_cohort_keep) |> 
+  mutate(location_category = factor(location_category,
+                                    levels = (c("icu", "stepdown", "ward", "er", "procedural", "other")),                                    ordered = TRUE)) |> 
   filter(location_category == "icu") |> 
-  arrange(clif_hospitalizations_joined_id, in_dttm) |> 
-  distinct(clif_hospitalizations_joined_id, hospital_id) |> 
-  mutate(hospital_id_count = n(),
-         .by = "hospital_id") |>  
-  filter(hospital_id_count > 100)
+  group_by(clif_hospitalizations_joined_id) |> 
+  arrange(clif_hospitalizations_joined_id, location_category, in_dttm) |> 
   
+  # first one will be ICU
+  slice_head(n=1) |> 
+  ungroup() |> 
+  dplyr::select(clif_hospitalizations_joined_id, hospital_id) |> 
+  mutate(hospital_id_count = n(),
+         .by = "hospital_id") |> 
+  filter(hospital_id_count > 100)
+
 # Count the number of encounters per hospital_id and assign "Hospital 1", "Hospital 2", etc.
 hospital_order <- hospital_keep |> 
   count(hospital_id, name = "encounters") %>%
