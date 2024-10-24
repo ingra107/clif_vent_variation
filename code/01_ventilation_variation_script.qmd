@@ -4193,7 +4193,8 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   
   explanatory_lr <- explanatory
   form_lr <- paste(dependent, "~", paste(explanatory_lr, collapse = " + "))
-  fit <- lm(formula = as.formula(form_lr), data = model_data)
+  fit <- model_data |> 
+    with(lm(formula = as.formula(form_lr)))
   
   # Display the formula for the regression
   message("This is the formula for the VFD regression")
@@ -4208,7 +4209,7 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
 
   # Generate a regression table using tbl_regression
   tbl <- model_data |> 
-    with(lm(formula = as.formula(form_lr))) %>%
+    with(fit) %>%
     tbl_regression() %>%
     bold_labels() %>%
     italicize_levels() %>%
