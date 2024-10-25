@@ -837,7 +837,7 @@ clif_labs <- import_df("clif_labs") |>
     # get rid of those with NO tidal volumes ever
   group_by(clif_hospitalizations_joined_id) |> 
   filter(!is.na(lab_category)) |> 
-  ungroup() |> 
+  ungroup() 
   
 
 # Demographics 
@@ -4568,8 +4568,11 @@ then finally
 3.  tv_kg ~ sex_category + height_inches + sex_category*height_inches + age_at_admission + laps2 + pf_ratio + ph + pco2
 4. tv_kg ~ sex_category + rcs(height_inches) + sex_category*rcs(height_inches) + age_at_admission + laps2 + pf_ratio + ph + pco2
 
+
 # Sex_category vs Height analysis 
+
 ```{r}
+
 # Assuming CLIF labs table contains pH and pCO2 values along with recorded_dttm
 # Prepare the labs data
 clif_labs_htvv <- clif_labs %>%
@@ -4596,7 +4599,8 @@ clif_labs_htvv <- clif_labs %>%
     ph = ffirst(ph, na.rm = TRUE),
     pco2 = ffirst(pco2, na.rm = TRUE)
   ) |> 
-  ungroup() |> distinct()
+  ungroup() |> 
+  distinct()
 
 
 # Prepare the data (as before)
@@ -4632,6 +4636,7 @@ hist(htvv_analysis$vt_per_kg_ibw, main = "Distribution of vt_per_kg_ibw", xlab =
 ```
 
 ## without height
+
 ```{r}
 if (hosp_id_count == 1) {
   # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
@@ -4692,7 +4697,9 @@ results_to_save <- model_results %>%
 
 write.csv(results_to_save, paste0("output/final/model_coefs_sex_category_ltvv__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
 ```
+
 ## Height fixed effect
+
 ```{r}
 if (hosp_id_count == 1) {
   # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
@@ -4759,6 +4766,73 @@ write.csv(results_to_save, paste0("output/final/model_coefs_sex_category_height_
 
 
 ## Height Interaction
+
+```{r}
+##########################
+### Height Interaction ##
+#########################
+if (hosp_id_count == 1) {
+  # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
+  mixed_model <- lmer(
+    vt_per_kg_ibw ~
+      sex_category * rcs(height_inches) +
+      age_at_admission +
+      laps2 +
+      # race_category +
+      pf_ratio +
+      ph +          # Include ph in the model
+      pco2 +        # Include pco2 in the model
+      (1 | patient_id),
+    data = htvv_analysis
+  )
+}
+
+
+if (hosp_id_count > 1) {
+  # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
+  mixed_model <- lmer(
+    vt_per_kg_ibw ~
+      sex_category * rcs(height_inches) +
+      age_at_admission +
+      laps2 +
+      # race_category +
+      pf_ratio +
+      ph +          # Include ph in the model
+      pco2 +        # Include pco2 in the model
+      hospital_id +
+      (1 | patient_id),
+    data = htvv_analysis
+  )
+}
+
+# Tidy the mixed model results
+model_results <- tidy(mixed_model, effects = "fixed", conf.int = TRUE)
+print(model_results)
+
+# Select relevant columns and rename them
+results_to_save <- model_results %>%
+  dplyr::select(
+    Variable = term, Estimate = estimate, StdError = std.error, 
+    LowerCI = conf.low, UpperCI = conf.high, DegreesFreedom = df, 
+    Statistic = statistic, PValue = p.value
+  ) %>%
+  # Add StudyID and Model columns
+  mutate(
+    StudyID = "sex_interaction_height_ltvv",  
+    Model = "MixedEffectsModel",
+    Site = site_name
+  ) %>%
+  # Rearrange columns
+  dplyr::select(
+    StudyID, Model, Site, Variable, Estimate, StdError, 
+    LowerCI, UpperCI, DegreesFreedom, Statistic, PValue
+  )
+
+write.csv(results_to_save, paste0("output/final/model_coefs_sex_interaction_height_ltvv__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
+```
+
+## Height Interaction RCS
+
 ```{r}
 ##########################
 ### Height Interaction ##
@@ -4821,7 +4895,10 @@ results_to_save <- model_results %>%
   )
 
 write.csv(results_to_save, paste0("output/final/model_coefs_sex_interaction_height_ltvv__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
+```
 
+
+```{r}
 # Create a sequence of height values for prediction
 new_height <- seq(min(htvv_analysis$height_inches), max(htvv_analysis$height_inches), length.out = 100)
 
