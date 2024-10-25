@@ -186,7 +186,7 @@ true_tables <- c(
   "hospitalization",
   "vitals",
   "labs",
-  "medication_admin_continuous",
+  # "medication_admin_continuous",
   "adt",
   # "patient_assessments",
   "respiratory_support",
@@ -369,7 +369,9 @@ clif_respiratory_support_start <-
   read_data("clif_respiratory_support") |> 
   dplyr::select(hospitalization_id, device_category, tracheostomy, recorded_dttm) |> 
 # Just getting those ventilated or trach
-  filter(str_to_lower(device_category) == "imv" | tracheostomy == 1) 
+  filter(str_to_lower(device_category) == "imv" | tracheostomy == 1) |> 
+  mutate(across(where(is.character), str_to_lower)) 
+
     
 clif_hospitalization_start <- 
   read_data("clif_hospitalization") |> 
