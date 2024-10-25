@@ -60,6 +60,10 @@ data_list <- lapply(file_groups, function(file_paths) {
 ## Mode Graph
 
 ```{r}
+
+
+
+
 ggplot(
   mode_hourly_resp_support,  aes(x = hospital_id_graph, fill = mode_category)) +
   geom_bar(position = "fill") +

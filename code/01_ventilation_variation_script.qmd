@@ -3923,7 +3923,7 @@ run_analysis_for_variable_finalfit <- function(var_name, interaction_term = FALS
     mutate(variable = var_name,
            site = site_name) 
   
-    write.csv(tidy_fit, file = paste0("output/intermediate/model_coefficients__", var_name, "_", suffix, "__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
+    write.csv(tidy_fit, file = paste0("output/intermediate/model_coefs__", var_name, "_", suffix, "__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
 
   
   return(fit)
@@ -4206,7 +4206,7 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   print(tidy_fit)
   
   # Save the coefficients to a CSV file
-  coefficients_filename <- paste0("output/final/model_coefficients_daily__", var_name, "__", suffix, "__", site_name, "_", Sys.Date(), ".csv")
+  coefficients_filename <- paste0("output/final/model_coefs_daily__", var_name, "__", suffix, "__", site_name, "_", Sys.Date(), ".csv")
   
   write.csv(tidy_fit, file = coefficients_filename, row.names = FALSE)
   message("just saved mortality coefs in the final folder!")
@@ -4324,7 +4324,7 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   # Display and save the plot
   print(coef_plot)
   
-  plot_filename <- paste0("output/intermediate/coef_plot_vfds__", var_name, "_", suffix, ".png")
+  plot_filename <- paste0("output/intermediate/coefs_plot_vfds__", var_name, "_", suffix, ".png")
   ggsave(plot_filename, plot = coef_plot)
   
   # --- Step 10: Extract Coefficients and Save ---
@@ -4334,7 +4334,7 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
            site = site_name)
   
   # Save the coefficients to a CSV file
-  coefficients_filename <- paste0("output/final/model_coefficients_vfds__", var_name, "__", suffix, "__", site_name, "_", Sys.Date(), ".csv")
+  coefficients_filename <- paste0("output/final/model_coefs_vfds__", var_name, "__", suffix, "__", site_name, "_", Sys.Date(), ".csv")
   write.csv(tidy_fit, file = coefficients_filename, row.names = FALSE)
   message("just saved the coefs for vent free days!")
   
@@ -4504,7 +4504,7 @@ legend("topright", legend = paste("HTVV =", htvv_levels, "hours"), col = 1:5, lt
 ```
 
 
-# Gender analysis 
+# Sex_category vs Height analysis 
 ```{r}
 
 # Assuming CLIF labs table contains pH and pCO2 values along with recorded_dttm
@@ -4559,41 +4559,45 @@ htvv_analysis <- htvv_step1 %>%
     hospital_id = as.factor(hospital_id),
     patient_id = as.factor(clif_hospitalizations_joined_id)  # Ensure patient_id is a factor
   ) |> 
-  left_join(clif_height |> dplyr::select(clif_hospitalizations_joined_id, height_cm))
+  left_join(clif_height |> dplyr::select(clif_hospitalizations_joined_id, height_inches))
 
 # Summary statistics
 summary(htvv_analysis)
 
 # Check distribution of vt_per_kg_ibw
-hist(htvv_analysis$vt_per_kg_ibw, main = "Distribution of vt_per_kg_ibw", xlab = "vt_per_kg_ibw")
+hist(htvv_analysis$vt_per_kg_ibw, main = "Distribution of vt_per_kg_ibw", xlab = "vt_per_kg_ibw")# Check distribution of vt_per_kg_ibw
 
 
-# Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
-mixed_model <- lmer(
-  vt_per_kg_ibw ~
-    sex_category * height_cm +
-    age_at_admission +
-    laps2 +
-    # race_category +
-    pf_ratio +
-    ph +          # Include ph in the model
-    pco2 +        # Include pco2 in the model
-    (1 | patient_id),
-  data = htvv_analysis
-)
-
-if (hosp_id_count > 1) {
+if (hosp_id_count == 1) {
   # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
   mixed_model <- lmer(
     vt_per_kg_ibw ~
-      sex_category * height_cm +
+      sex_category +
       age_at_admission +
       laps2 +
       # race_category +
       pf_ratio +
       ph +          # Include ph in the model
       pco2 +        # Include pco2 in the model
-      (1 | hospital_id) + (1 | patient_id),
+      (1 | patient_id),
+    data = htvv_analysis
+  )
+}
+
+
+if (hosp_id_count > 1) {
+  # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
+  mixed_model <- lmer(
+    vt_per_kg_ibw ~
+      sex_category +
+      age_at_admission +
+      laps2 +
+      # race_category +
+      pf_ratio +
+      ph +          # Include ph in the model
+      pco2 +        # Include pco2 in the model
+      hospital_id +
+      (1 | patient_id),
     data = htvv_analysis
   )
 }
@@ -4605,40 +4609,89 @@ print(model_results)
 # Select relevant columns and rename them
 results_to_save <- model_results %>%
   dplyr::select(
-    Variable = term,
-    Estimate = estimate,
-    StdError = std.error,
-    LowerCI = conf.low,
-    UpperCI = conf.high,
-    DegreesFreedom = df,
-    Statistic = statistic,
-    PValue = p.value
+    Variable = term, Estimate = estimate, StdError = std.error, 
+    LowerCI = conf.low, UpperCI = conf.high, DegreesFreedom = df, 
+    Statistic = statistic, PValue = p.value
   ) %>%
   # Add StudyID and Model columns
   mutate(
-    StudyID = "sex_category_ltvv",  # Replace with your actual Study ID
+    StudyID = "sex_category_ltvv",  
     Model = "MixedEffectsModel",
     Site = site_name
   ) %>%
   # Rearrange columns
   dplyr::select(
-    StudyID,
-    Model,
-    Site,
-    Variable,
-    Estimate,
-    StdError,
-    LowerCI,
-    UpperCI,
-    DegreesFreedom,
-    Statistic,
-    PValue
+    StudyID, Model, Site, Variable, Estimate, StdError, 
+    LowerCI, UpperCI, DegreesFreedom, Statistic, PValue
   )
 
-write.csv(results_to_save, paste0("output/final/sex_category_ltvv__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
+write.csv(results_to_save, paste0("output/final/model_coefs_sex_category_ltvv__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
+
+
+##########################
+### Height Interaction ##
+#########################
+if (hosp_id_count == 1) {
+  # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
+  mixed_model <- lmer(
+    vt_per_kg_ibw ~
+      sex_category * height_inches +
+      age_at_admission +
+      laps2 +
+      # race_category +
+      pf_ratio +
+      ph +          # Include ph in the model
+      pco2 +        # Include pco2 in the model
+      (1 | patient_id),
+    data = htvv_analysis
+  )
+}
+
+
+if (hosp_id_count > 1) {
+  # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
+  mixed_model <- lmer(
+    vt_per_kg_ibw ~
+      sex_category * height_inches +
+      age_at_admission +
+      laps2 +
+      # race_category +
+      pf_ratio +
+      ph +          # Include ph in the model
+      pco2 +        # Include pco2 in the model
+      hospital_id +
+      (1 | patient_id),
+    data = htvv_analysis
+  )
+}
+
+# Tidy the mixed model results
+model_results <- tidy(mixed_model, effects = "fixed", conf.int = TRUE)
+print(model_results)
+
+# Select relevant columns and rename them
+results_to_save <- model_results %>%
+  dplyr::select(
+    Variable = term, Estimate = estimate, StdError = std.error, 
+    LowerCI = conf.low, UpperCI = conf.high, DegreesFreedom = df, 
+    Statistic = statistic, PValue = p.value
+  ) %>%
+  # Add StudyID and Model columns
+  mutate(
+    StudyID = "sex_category_ltvv",  
+    Model = "MixedEffectsModel",
+    Site = site_name
+  ) %>%
+  # Rearrange columns
+  dplyr::select(
+    StudyID, Model, Site, Variable, Estimate, StdError, 
+    LowerCI, UpperCI, DegreesFreedom, Statistic, PValue
+  )
+
+write.csv(results_to_save, paste0("output/final/model_coefs_sex_category_height_ltvv__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
 
 # Create a sequence of height values for prediction
-new_height <- seq(min(htvv_analysis$height_cm), max(htvv_analysis$height_cm), length.out = 100)
+new_height <- seq(min(htvv_analysis$height_inches), max(htvv_analysis$height_inches), length.out = 100)
 
 # Get median or typical values for other continuous covariates
 median_age <- median(htvv_analysis$age_at_admission, na.rm = TRUE)
@@ -4650,26 +4703,38 @@ median_pco2 <- median(htvv_analysis$pco2, na.rm = TRUE)
 # Use the most frequent value for categorical variables
 common_race <- names(sort(table(htvv_analysis$race_category), decreasing = TRUE))[1]
 
+
 # Create new data frame for predictions
 new_data <- expand.grid(
-  height_cm = new_height,
+  height_inches = new_height,
   sex_category = unique(htvv_analysis$sex_category),
   age_at_admission = median_age,
   laps2 = median_laps2,
   pf_ratio = median_pf_ratio,
   ph = median_ph,
-  pco2 = median_pco2,
-  race_category = common_race
+  # race_category = common_race,
+  pco2 = median_pco2
 )
+
+if(hosp_id_count > 1){
+  common_hospital <- names(sort(table(htvv_analysis$hospital_id), decreasing = TRUE))[1]
+  
+  new_data$hospital_id <- common_hospital
+}
+
 
 # Predict based on fixed effects, ignoring random effects
 new_data$predicted_vt_per_kg_ibw <- predict(mixed_model, newdata = new_data, re.form = NA)
 
+
+write.csv(new_data, paste0("output/final/model_preds_sex_category_height_ltvv__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
+
+
 # Plot the predictions
-ggplot(new_data, aes(x = height_cm, y = predicted_vt_per_kg_ibw, color = sex_category)) +
+ggplot(new_data, aes(x = height_inches, y = predicted_vt_per_kg_ibw, color = sex_category)) +
   geom_line() +
   labs(
-    x = "Height (cm)",
+    x = "Height (in)",
     y = "Predicted VT per kg IBW",
     color = "Sex"
   ) +
