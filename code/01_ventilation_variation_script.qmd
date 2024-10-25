@@ -378,7 +378,11 @@ clif_hospitalization_start <-
          # admission_type_category, 
          discharge_name, discharge_category) |> 
   mutate(admission_dttm = ymd_hms(admission_dttm)) |> 
-  mutate(discharge_dttm = ymd_hms(discharge_dttm))
+  mutate(discharge_dttm = ymd_hms(discharge_dttm)) |>       
+  # unfactor things to ensure everything is lowercase
+  mutate(across(where(is.factor), as.character)) |> 
+  # get everything to lower
+  mutate(across(where(is_character), str_to_lower)) 
 
 
 # getting a keep_list of hospitalization_ids that have vent or trach during their encounter... we will use this right_join the dfs below
@@ -571,7 +575,7 @@ df_cohort_keep <- clif_hospitalization |>
 hospital_keep <- read_data("clif_adt") %>%
   right_join(df_cohort_keep) |> 
   mutate(location_category = factor(location_category,
-                                    levels = (c("icu", "stepdown", "ward", "er", "procedural", "other")),                                    ordered = TRUE)) |> 
+                                    levels = (c("icu", "stepdown", "ward", "ed", "procedural", "other")), ordered = TRUE)) |> 
   filter(location_category == "icu") |> 
   group_by(clif_hospitalizations_joined_id) |> 
   arrange(clif_hospitalizations_joined_id, location_category, in_dttm) |> 
@@ -593,6 +597,13 @@ hospital_order <- hospital_keep |>
 # use this in analytic sets after we ID the ICU/VENT hosp to filter out hospitals that don't have enough traffic
 # filter(hospital_id %in% hospital_filter)
 hospital_filter <- hospital_order |> pull()
+
+df_cohort_keep_encounters <- df_cohort_keep_encounters |> 
+  # drop those at hospitals with < 100
+  inner_join(hospital_keep |> select(clif_hospitalizations_joined_id))
+  
+df_cohort_keep <- df_cohort_keep |> 
+  inner_join(df_cohort_keep_encounters)
 
 # narrowing down clif_hospitaliation to the appropriate cohort
 clif_hospitalization <- clif_hospitalization |> 
@@ -815,7 +826,11 @@ clif_labs <- import_df("clif_labs") |>
   
   # get rid of duplicates
   #     will take the first non-missing lab_value_numeric
-  distinct(clif_hospitalizations_joined_id, hospitalization_id, lab_collect_dttm, lab_category, .keep_all = TRUE)
+  distinct(clif_hospitalizations_joined_id, hospitalization_id, lab_collect_dttm, lab_category, .keep_all = TRUE) |> 
+    # get rid of those with NO tidal volumes ever
+  group_by(clif_hospitalizations_joined_id) |> 
+  filter(!is.na(lab_category)) |> 
+  ungroup() 
   
 
 # Demographics 
@@ -2424,7 +2439,7 @@ theme(
 ### change to hospital_icu
 clif_adt_hospital <-  clif_adt |>
   mutate(location_category = factor(location_category,
-                                    levels = (c("icu", "stepdown", "ward", "er", "procedural", "other")),                                    ordered = TRUE)) |> 
+                                    levels = (c("icu", "stepdown", "ward", "ed", "procedural", "other")),                                    ordered = TRUE)) |> 
   group_by(clif_hospitalizations_joined_id) |> 
   arrange(clif_hospitalizations_joined_id, location_category, in_dttm) |> 
   
@@ -2472,7 +2487,7 @@ df_encounter_laps2_temp1 <- clif_hospitalization |>
     dt_24hours_after_admit    = admission_dttm + hours(24),
     
     # ED binary variable
-    ed_admit_01               = fifelse(str_detect(first_location_category, "er"), 1, 0, 0),
+    ed_admit_01               = fifelse(first_location_category == "ed", 1, 0, 0),
           # I think we used categorical in Rachel Kohn paper... Pat uses ED y/n
           # admission source OR you can use ED variable
     # Admit source variable (use one or the other)
@@ -2489,14 +2504,9 @@ df_encounter_laps2_temp1 <- clif_hospitalization |>
 ## Anion Gap with 1 hour tolerance
 ```{r}
 
-if(!any(clif_labs$lab_category == "anion_gap")){
-  
-  print("no anion_gap found... we will make one for you!!")
-  
-} else {
+if(any(clif_labs$lab_category == "anion_gap")){
   
   print("you already have anion gap")
-  
   message("we are going to remove anion_gap and recreate it for you")
   message("this way... all our analyses are the same")
   
@@ -2504,6 +2514,40 @@ if(!any(clif_labs$lab_category == "anion_gap")){
     filter(lab_category != "anion_gap")
 
     print("Anion gap removed... please proceed!!")
+  
+} else {
+  
+  print("no anion_gap found... we will make one for you!!")
+  
+  
+}
+
+
+if(any(clif_labs$lab_category == "troponin_t")){
+  
+  print("you already have trop_t")
+  message("we are going to change to trop_i levels")
+  
+  clif_labs <- clif_labs |> 
+    
+    mutate(lab_value_numeric = fcase(
+      lab_category == "troponin_t",
+      lab_value_numeric / 1000,
+      default = lab_value_numeric
+    )) |> 
+    
+    mutate(lab_category = fcase(
+      lab_category == "troponin_t",
+      "troponin_i",
+      rep_len(TRUE, length(lab_category)), lab_category
+    )) 
+    
+    print("Troponin fixed ... please proceed!!")
+  
+} else {
+  
+  print("no need to fix troponin !!")
+  
 }
 
 # Set a time tolerance, e.g., 1 hour
@@ -4352,9 +4396,9 @@ variables <- list(
   list(var_name = "laps2", agg_func = fmax)
 )
 
-if ("mean_airway_pressure_obs" %in% names(intubation_data)) {
-  variables <- append(variables, list(list(var_name = "oxygenation_index", agg_func = fmin)))
-}
+# if ("mean_airway_pressure_obs" %in% names(df_resp_support_1)) {
+#   variables <- append(variables, list(list(var_name = "oxygenation_index", agg_func = fmin)))
+# }
 
 for (var_info in variables) {
   

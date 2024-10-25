@@ -55,6 +55,21 @@ data_list <- lapply(file_groups, function(file_paths) {
 })
 
 
+
+list2env(data_list, envir = .GlobalEnv)
+
+# getting health system into the Mix
+
+hospital_table1_summary <- hospital_table1_summary |> 
+  mutate(health_system = sub("Hospital\\s+(.*?)\\s+\\d+", "\\1", Hospital)) |> 
+  group_by(health_system, Hospital) |> 
+  mutate(Hospital_ID = cur_group_id()) |> 
+  ungroup() |> 
+  group_by(health_system) |> 
+  mutate(Health_system_ID = cur_group_id()) |> 
+  ungroup()
+  
+
 ```
 
 ## Mode Graph
@@ -62,7 +77,11 @@ data_list <- lapply(file_groups, function(file_paths) {
 ```{r}
 
 
+# uncount
+mode_hourly_resp_support <- mode_hourly_resp_support_table |> uncount(n)
 
+# already rolled up... no need to change
+mode_hospital_summary_table 
 
 ggplot(
   mode_hourly_resp_support,  aes(x = hospital_id_graph, fill = mode_category)) +
