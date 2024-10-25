@@ -359,7 +359,7 @@ ni_open_dataset_clif <- function(file){
 
 
 ## Date range
-start_date <- "2021-01-01"
+start_date <- "2018-01-01"
 end_date <- "2024-09-30"
 
 
@@ -4116,7 +4116,13 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   # Define dependent and explanatory variables
   dependent <- "mortality_enc"  # You can change this to 'VFDs' if modeling ventilator-free days
   
-  explanatory <- c(worst_24hr_name, delta_var_name, "age_at_admission", "sex_category", "race_category", "day", "htvv_daily_percent")
+  explanatory <- c(worst_24hr_name,
+                   delta_var_name,
+                   "age_at_admission",
+                   "sex_category",
+                   # "race_category",
+                   "day",
+                   "htvv_daily_percent")
   
   if (hosp_id_count > 1) {
     explanatory <- c(explanatory, "hospital_id")
@@ -4177,7 +4183,7 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
       "htvv_daily_percent" = "Daily % HTVV",
       "age_at_admission" = "Age at Admission",
       "sex_categoryFemale" = "Sex: Female",
-      "race_category" = "Race Category",
+      # "race_category" = "Race Category",
       "hospital_id" = "Hospital ID"
     ))
   
@@ -4245,7 +4251,12 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   # Define dependent and explanatory variables
   dependent <- "VFDs"
   
-  explanatory <- c(worst_24hr_name, delta_var_name, "age_at_admission", "sex_category", "race_category", "htvv_daily_percent")
+  explanatory <- c(worst_24hr_name,
+                   delta_var_name,
+                   "age_at_admission",
+                   "sex_category",
+                   # "race_category",
+                   "htvv_daily_percent")
   
   if (hosp_id_count > 1) {
     explanatory <- c(explanatory, "hospital_id")
