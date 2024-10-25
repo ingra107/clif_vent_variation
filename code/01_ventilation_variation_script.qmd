@@ -759,7 +759,9 @@ clif_respiratory_support <- import_df("clif_respiratory_support") |>
         starts_with("mean_airway_pressure"),  # in case ppl don't have this yet.. prevents from breaking
         # peep_obs, # not used and not in adult set 
         minute_vent_obs,
-        tracheostomy)
+        tracheostomy) |> 
+  mutate(across(ends_with("_set"), as.double)) |> 
+  mutate(across(ends_with("_obs"), as.double))
 
 
 # ADT File to merge with patient so we can get hospital ID
@@ -795,8 +797,9 @@ clif_vitals <- import_df("clif_vitals") |>
         recorded_dttm,
         vital_name,
         vital_category,
-        vital_value,
-        meas_site_name)
+        vital_value
+        # meas_site_name
+        )
 
 
 # GCS for lap2
@@ -830,7 +833,7 @@ clif_labs <- import_df("clif_labs") |>
     # get rid of those with NO tidal volumes ever
   group_by(clif_hospitalizations_joined_id) |> 
   filter(!is.na(lab_category)) |> 
-  ungroup() 
+  ungroup() |> 
   
 
 # Demographics 
@@ -960,9 +963,13 @@ sbt <- clif_respiratory_support |>
   ungroup() |> 
   arrange(clif_hospitalizations_joined_id, recorded_date) |> 
   distinct(clif_hospitalizations_joined_id, recorded_date, sbt)  |> 
-  mutate(health_system = site_name)
+  group_by(clif_hospitalizations_joined_id) |> 
+  mutate(hospital_day = row_number()) |> 
+  mutate(health_system = site_name) |> 
+  ungroup() |> 
+  count(health_system, hospital_day, sbt)
 
-write.csv(sbt, paste0("output/final/sbt__",site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
+write.csv(sbt, paste0("output/intermediate/sbt__",site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
   
 
 ```
@@ -3107,7 +3114,7 @@ df_vitals_gcs <- clif_vitals |>
                                        "spo2",
                                        "heart_rate",
                                        "respiratory_rate")) |>
-              dplyr::select(-meas_site_name) |> 
+              # dplyr::select(-meas_site_name) |> 
               
                           # get gcs in there now
               bind_rows(df_gcs_merge_ready)
