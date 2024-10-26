@@ -87,6 +87,7 @@ editor_options:
   library(lme4)
   library(finalfit)
   library(furrr)
+  library(rms)
 
 
 
@@ -4775,7 +4776,7 @@ if (hosp_id_count == 1) {
   # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
   mixed_model <- lmer(
     vt_per_kg_ibw ~
-      sex_category * rcs(height_inches) +
+      sex_category * height_inches +
       age_at_admission +
       laps2 +
       # race_category +
@@ -4792,7 +4793,7 @@ if (hosp_id_count > 1) {
   # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
   mixed_model <- lmer(
     vt_per_kg_ibw ~
-      sex_category * rcs(height_inches) +
+      sex_category * height_inches +
       age_at_admission +
       laps2 +
       # race_category +
@@ -4841,7 +4842,7 @@ if (hosp_id_count == 1) {
   # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
   mixed_model <- lmer(
     vt_per_kg_ibw ~
-      sex_category * height_inches +
+      sex_category * rcs(height_inches) +
       age_at_admission +
       laps2 +
       # race_category +
@@ -4858,7 +4859,7 @@ if (hosp_id_count > 1) {
   # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
   mixed_model <- lmer(
     vt_per_kg_ibw ~
-      sex_category * height_inches +
+      sex_category * rcs(height_inches) +
       age_at_admission +
       laps2 +
       # race_category +
@@ -4894,7 +4895,7 @@ results_to_save <- model_results %>%
     LowerCI, UpperCI, DegreesFreedom, Statistic, PValue
   )
 
-write.csv(results_to_save, paste0("output/final/model_coefs_sex_interaction_height_ltvv__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
+write.csv(results_to_save, paste0("output/final/model_coefs_sex_interaction_height_RCS_ltvv__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
 ```
 
 
