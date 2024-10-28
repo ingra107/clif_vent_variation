@@ -1881,7 +1881,6 @@ sbt <- df_hourly_resp_support |>
   mutate(sbt_relaxed = fcase(pressure_support_set >= 10, 0, default = sbt)) |> 
   mutate(sbt_strict = fcase(pressure_support_set >= 8 |
                               peep_set >= 1, 0, default = sbt_relaxed)) |> 
-  # mutate(sbt_strict = fcase(peep_set >= 1, 0, default = sbt_strict)) |> 
   ungroup() |> 
   
   # fixing when NAs should be there (times when its not pressure support)
@@ -5170,14 +5169,6 @@ ggsurvplot(km_oi_fit, data = OI_analysis_test,
            xlab = "Time on Ventilator (days)",
            ylab = "Probability of Survival to Extubation",
            conf.int = TRUE)
-
-
-
-
-
-
-
-
 
 
 }
