@@ -2022,6 +2022,9 @@ ltvv_variation <- df_hourly_resp_support |>
   # need at least 24 hours of ventilation
   filter(vent_episode_duration_hours >= 24) |> 
   
+  # filter down to a time
+  filter(vent_episode_hour_seq <= 24) |> 
+  
   # getting Vt by ibw
   mutate(vt_cckg = tidal_volume_set / ibw) |> 
   
