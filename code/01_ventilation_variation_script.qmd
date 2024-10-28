@@ -1879,21 +1879,28 @@ sbt <- df_hourly_resp_support |>
   
   # currently treating NAs as if they are ok will still givea 1 if all are NA
   mutate(sbt_relaxed = fcase(pressure_support_set >= 10, 0, default = sbt)) |> 
-  mutate(sbt_strict = fcase(pressure_support_set >= 8, 0, default = sbt_relaxed)) |> 
-  mutate(sbt_strict = fcase(peep_set >= 1, 0, default = sbt_strict)) |> 
+  mutate(sbt_strict = fcase(pressure_support_set >= 8 |
+                              peep_set >= 1, 0, default = sbt_relaxed)) |> 
+  # mutate(sbt_strict = fcase(peep_set >= 1, 0, default = sbt_strict)) |> 
   ungroup() |> 
+  
+  # fixing when NAs should be there (times when its not pressure support)
+  mutate(sbt_relaxed = fifelse(is.na(sbt), NA_real_, sbt_relaxed)) |> 
+  mutate(sbt_strict = fifelse(is.na(sbt), NA_real_, sbt_strict)) |> 
+  
+  # getting daily max
   group_by(clif_hospitalizations_joined_id, recorded_date) |> 
   mutate(sbt_relaxed = fmax(sbt_relaxed, na.rm = T)) |> 
   mutate(sbt_strict = fmax(sbt_strict, na.rm = T)) |> 
   mutate(sbt = fmax(sbt, na.rm = T)) |> 
   ungroup() |> 
   arrange(clif_hospitalizations_joined_id, recorded_date) |>
-  distinct(clif_hospitalizations_joined_id, recorded_date, sbt, sbt_relaxed, sbt_strict)  |> 
+  distinct(clif_hospitalizations_joined_id, recorded_date, sbt_relaxed, sbt_strict)  |> 
   group_by(clif_hospitalizations_joined_id) |> 
   mutate(hospital_day = row_number()) |> 
   mutate(health_system = site_name) |> 
   ungroup() |> 
-  count(health_system, hospital_day, sbt, sbt_relaxed, sbt_strict)
+  count(health_system, hospital_day, sbt_relaxed, sbt_strict)
 
 write.csv(sbt, paste0("output/intermediate/sbt__",site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
   
