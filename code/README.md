@@ -12,7 +12,9 @@
 
     -   **After opening** you may have to click **install** at the top
         of R studio!!... then run
-    -   Cohorts
+    -   **Windows Users** you make need to download
+        [RTools](https://cran.r-project.org/bin/windows/Rtools/ "Go here and download appropriate Rtools package for your version of R")
+    -   Cohorts based on ventilator data and start/end times
     -   Then performs project-specific quality control checks on the
         filtered cohort data
     -   Handles outliers using predefined thresholds as given in
@@ -22,6 +24,7 @@
     Input:
 
     -   rclif tables
+        -   tables should be named `clif_xyz`
 
     Output:
 
@@ -39,10 +42,27 @@
 
     -   **Final** folder
 
+        -   *mode_hospital_summary*: this is aggregated hospital data
+            for modes
+
+        -   *mode_hourly_resp_support*: this is aggregated mode data
+
         -   *lttv_variation_table*: this is aggregated data to compare
             hospitals
 
-        -   *mode_hospital_summary*: this is aggregated mode data
+        -   *hospital_table1_summary*: this is for table 1
 
-        -   *trach_variation_table*: this is aggregated data for time to
-            trach
+        -   *ltvv_female_table*: this is aggregated data to eval
+            difference between Vt \~ sex_category
+
+        -   *model_coefs_daily*: looking at differences in sf, pf, laps2
+            scores as severity of illness
+
+            -   outcomes are `inhospital_mortality` and
+                `ventilator_free_days`
+
+        -   *model_coefs_sex_category:* these are different models
+            looking at the relationship between sex_category and height
+
+        -   *model_preds_sex_category*: predictions at the median/most
+            common for plotting
