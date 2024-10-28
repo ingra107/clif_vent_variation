@@ -254,7 +254,7 @@ ni_peek <- function(x, n=100){
 ni_count_missing <- function(df, group_vars, x_var) {
   df |> 
     group_by(pick({{ group_vars }})) |> 
-    summarize(
+    summarise(
       n_miss = sum(is.na({{ x_var }})),
       .groups = "drop"
     )
@@ -380,7 +380,9 @@ clif_hospitalization_start <-
          # admission_type_name, 
          # admission_type_category, 
          discharge_name, discharge_category) |> 
+  mutate(admission_dttm = as.POSIXct(admission_dttm, tz = "UTC")) |> 
   mutate(admission_dttm = ymd_hms(admission_dttm)) |> 
+  mutate(discharge_dttm = as.POSIXct(discharge_dttm, tz = "UTC")) |>       
   mutate(discharge_dttm = ymd_hms(discharge_dttm)) |>       
   # unfactor things to ensure everything is lowercase
   mutate(across(where(is.factor), as.character)) |> 
@@ -685,6 +687,8 @@ import_df <- function(x) {
   for (var in datetime_vars) {
     if (!inherits(df[[var]], "POSIXct")) {
       
+      df[[var]] <- as.POSIXct(df[[var]], tz = "UTC")
+      
       # Attempt to parse datetime using a common format, adjust based on your actual format
       df[[var]] <- ymd_hms(df[[var]], quiet = TRUE)
       
@@ -953,29 +957,6 @@ hour_sequence <- clif_respiratory_support |>
   mutate(recorded_date = as_date(recorded_dttm),
          recorded_hour = hour(recorded_dttm)) |> 
   ungroup()
-
-```
-
-## SBT
-```{r}
-sbt <- clif_respiratory_support |> 
-  mutate(sbt = fifelse(mode_category == "pressure support/cpap", 1, 0)) |>
-  bind_rows(hour_sequence) |> 
-    mutate(recorded_date = as_date(recorded_dttm)
-         ) |> 
-  group_by(clif_hospitalizations_joined_id, recorded_date) |> 
-  mutate(sbt = fmax(sbt, na.rm = T)) |> 
-  ungroup() |> 
-  arrange(clif_hospitalizations_joined_id, recorded_date) |> 
-  distinct(clif_hospitalizations_joined_id, recorded_date, sbt)  |> 
-  group_by(clif_hospitalizations_joined_id) |> 
-  mutate(hospital_day = row_number()) |> 
-  mutate(health_system = site_name) |> 
-  ungroup() |> 
-  count(health_system, hospital_day, sbt)
-
-write.csv(sbt, paste0("output/intermediate/sbt__",site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
-  
 
 ```
 
@@ -1472,7 +1453,7 @@ df_spo2 <- clif_vitals |>
   
   # taking the min spo2 by  DAY and HOUR and ENCOUNTER 
   group_by(clif_hospitalizations_joined_id, recorded_date, recorded_hour) |> 
-  summarize(spo2 = fmin(spo2, na.rm = TRUE)) |> 
+  summarise(spo2 = fmin(spo2, na.rm = TRUE)) |> 
   ungroup() |> 
   dplyr::select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, spo2)
   
@@ -1502,7 +1483,7 @@ df_po2_arterial <-  clif_labs |>
   
   # grouping by day
   group_by(clif_hospitalizations_joined_id, recorded_date) |> 
-  summarize(po2_arterial = fmin(po2_arterial, na.rm = TRUE),
+  summarise(po2_arterial = fmin(po2_arterial, na.rm = TRUE),
             so2_arterial = fmin(so2_arterial, na.rm = TRUE)
             ) |> 
   ungroup() |> 
@@ -1840,6 +1821,7 @@ df_hourly_resp_support <- df_hourly_resp_support2 |>
       recorded_month,
       recorded_year,
       peep_set,
+      pressure_support_set,
       tracheostomy,
       tidal_volume_set,
       hospital_id,
@@ -1866,7 +1848,7 @@ write_parquet(df_hourly_resp_support, paste0("output/intermediate/df_hourly_resp
 
 # saving system date today
 most_recent_save_hourly <- Sys.Date()
-save(most_recent_save_hourly, file = "output/intermediate/most_recent_save.Rdata")
+save(most_recent_save_hourly, file = "output/intermediate/most_recent_save_hourly.Rdata")
 
 
 hosp_id_count <- df_hourly_resp_support |> count(hospital_id) |> nrow()
@@ -1877,10 +1859,7 @@ hosp_id_count <- df_hourly_resp_support |> count(hospital_id) |> nrow()
 
 
 
-
-
-## Fig 1 Mode Variation --> Frequency and Density of Vent Mode by hospitals
-
+## SBT
 ```{r}
 
 if(!exists("df_hourly_resp_support")){
@@ -1889,6 +1868,40 @@ if(!exists("df_hourly_resp_support")){
     "output/intermediate/df_hourly_resp_support_", most_recent_save_hourly,".parquet"))
 }
 
+
+
+sbt <- df_hourly_resp_support |> 
+  mutate(sbt = fifelse(mode_category == "pressure support/cpap", 
+                       1, 0)) |>
+  group_by(clif_hospitalizations_joined_id, recorded_date, recorded_hour, sbt) |> 
+  mutate(pressure_support_set = fmin(pressure_support_set, na.rm = T)) |> 
+  mutate(peep_set = fmin(peep_set, na.rm = T)) |> 
+  ungroup() |> 
+  group_by(clif_hospitalizations_joined_id, recorded_date) |> 
+  mutate(sbt = fmax(sbt, na.rm = T)) |> 
+  ungroup() |> 
+  arrange(clif_hospitalizations_joined_id, recorded_date) |> 
+  distinct(clif_hospitalizations_joined_id, recorded_date, sbt, pressure_support_set, peep_set)  |> 
+  mutate(
+    pressure_support_set = fifelse(sbt == 0, NA_real_, pressure_support_set),
+    peep_set = fifelse(sbt == 0, NA_real_, peep_set)
+  ) |> 
+  group_by(clif_hospitalizations_joined_id) |> 
+  mutate(hospital_day = row_number()) |> 
+  mutate(health_system = site_name) |> 
+  ungroup() |> 
+  count(health_system, hospital_day, sbt, pressure_support_set, peep_set)
+
+write.csv(sbt, paste0("output/intermediate/sbt__",site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
+  
+
+```
+
+
+
+## Fig 1 Mode Variation --> Frequency and Density of Vent Mode by hospitals
+
+```{r}
 
 ##~~~~~~~~~~~~~
 ##~~ Hospital Summary
@@ -2296,7 +2309,7 @@ ggplot(summary_data_bar, aes(x = proportion, y = hospital_id, fill = vt_bin)) +
 # Ensure sex_category is treated as a factor
 summary_data_height <- ltvv_female_table %>%
   group_by(height_quantile, sex_category, vt_bin) %>%
-  summarize(total_n = sum(n), .groups = 'drop') %>%
+  summarise(total_n = sum(n), .groups = 'drop') %>%
   group_by(height_quantile, sex_category) %>%
   mutate(proportion = total_n / sum(total_n)) %>%
   ungroup() %>%
@@ -4899,6 +4912,7 @@ write.csv(results_to_save, paste0("output/final/model_coefs_sex_interaction_heig
 ```
 
 
+## looking at the data
 ```{r}
 # Create a sequence of height values for prediction
 new_height <- seq(min(htvv_analysis$height_inches), max(htvv_analysis$height_inches), length.out = 100)
@@ -4998,7 +5012,7 @@ OI_analysis <- df_oxygenation_index_analysis_prep |>
   filter(!is.na(OI) | mortality == 1 | extubated == 1) |>
   # mutate(day = floor(time_on_ventilator / 24)) |>
   # group_by(clif_hospitalizations_joined_id, day) |>
-  # summarize(OI = max(OI),  # peak OI in each day
+  # summarise(OI = max(OI),  # peak OI in each day
   #           extubated = max(extubated),
   #           mortality = max(mortality)) |>
   # ungroup() |>

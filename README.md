@@ -38,11 +38,11 @@ The following tables are required:
     `lab_collect_dttm`, `lab_category`, `lab_name`, `lab_value_numeric`,
     `reference_unit`, `lab_category` = 'sodium', 'albumin', 'anion_gap',
     'bilirubin_total', 'bun', 'carbon_dioxide', 'creatinine',
-    'glucose_serum', 'hemoglobin', 'lactate',
-    'pco2_arterial', 'po2_arterial', 'ph_arterial', 'platelet_count',
-    'so2_arterial', 'sodium', 'troponin_i', 'wbc'
-5.  **adt**: `hospitalization_id`, `in_dttm`,
-    `out_dttm`, `location_name`, `location_category`
+    'glucose_serum', 'hemoglobin', 'lactate', 'pco2_arterial',
+    'po2_arterial', 'ph_arterial', 'platelet_count', 'so2_arterial',
+    'sodium', 'troponin_i', 'wbc'
+5.  **adt**: `hospitalization_id`, `in_dttm`, `out_dttm`,
+    `location_name`, `location_category`
 6.  **respiratory_support**: `hospitalization_id`, `recorded_dttm`,
     `device_name`, `device_category`, `mode_name`, `mode_category`,
     `fio2_set`, `lpm_set`, `tidal_volume_set`, `resp_rate_set`,
@@ -58,7 +58,8 @@ The following tables are required:
 
 1.  Adults (age \>= 18 years old)
 2.  Mechanical Ventilation within 72 hours of admission
-3.  Admission from 2018-2024  (anytime between these years is acceptable... does not need to be the entire time frame)
+3.  Admission from 2018-2024 (anytime between these years is
+    acceptable... does not need to be the entire time frame)
 4.  Volume control with a set tidal volume within 24 hours of mechanical
     ventilation
 
@@ -102,28 +103,12 @@ renv::install(c("tidyverse", "ggthemes", "systemfonts",  "styler", "readxl", "wr
 renv::snapshot()
 ```
 
-Example for Python:
-
-```         
-python3 -m venv .mobilization
-source .mobilization/bin/activate
-pip install -r requirements.txt 
-```
-
 ## 2. Update `config/config.json`
 
-Follow the instructions in the [config/README.md](config/README.md) file for
-detailed configuration steps.
+Follow the instructions in the [config/README.md](config/README.md) file
+for detailed configuration steps.
 
 ## 3. Run code
 
 Detailed instructions on the code workflow are provided in the [code
 directory](code/README.md)
-
-## Example Repositories
-
--   [CLIF Adult Sepsis
-    Events](https://github.com/08wparker/CLIF_adult_sepsis_events) for R
-
--   [CLIF Eligibility for
-    mobilization](https://github.com/kaveriC/mobilization) for Python
