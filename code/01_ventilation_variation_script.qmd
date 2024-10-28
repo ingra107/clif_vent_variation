@@ -4910,7 +4910,7 @@ results_to_save <- model_results %>%
   ) %>%
   # Add StudyID and Model columns
   mutate(
-    StudyID = "sex_interaction_height_ltvv",  
+    StudyID = "sex_interaction_height_ltvv_rcs",  
     Model = "MixedEffectsModel",
     Site = site_name
   ) %>%

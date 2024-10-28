@@ -165,7 +165,15 @@ plot_mode_hourly_resp_support
 ```{r}
 # This is the first 24 hours ventilation
 ltvv_variation <- ltvv_variation_table |> 
-  uncount(n) 
+  uncount(n) |> 
+    mutate(
+    vt_bin = factor(vt_bin, levels = rev(c("< 4 cc/kg", "4-5 cc/kg",
+                                           "5-6 cc/kg", "6-7 cc/kg",
+                                           "7-8 cc/kg" , "8-9 cc/kg",
+                                           "9-10 cc/kg", "10-11 cc/kg",
+                                           "11-12 cc/kg", ">= 12 cc/kg")))
+  ) 
+  
 
 icu_hosp_ranks_8cc <- ltvv_variation |> 
   group_by(hospital_id) |> 
@@ -188,7 +196,7 @@ ltvv_variation |>
   mutate(hospital_id = factor(hospital_id, levels = rev(icu_hosp_ranks_8cc))) |> 
   ggplot(aes(y = hospital_id, fill = vt_bin )) + 
   geom_bar(position = "fill") + 
-  scale_fill_brewer(palette = "RdBu", direction = 1) +
+  scale_fill_brewer(palette = "RdYlBu", direction = 1) +
   ggthemes::theme_gdocs() + 
   labs(x = "Percentage of patient-hours of volume control ventilation",
        y = "Hospital",
@@ -202,24 +210,50 @@ ltvv_variation |>
 ## Sex_category / LTVV 
 
 ```{r}
+
 ltvv_female <- ltvv_female_table |> 
   uncount(n) 
 
 
+icu_hosp_ranks_8cc_female <- ltvv_female |> 
+  filter(sex_category == "female") |> 
+  group_by(hospital_id) |> 
+  mutate(count_hosp = n()) |> 
+  group_by(hospital_id, vt_bin, count_hosp) |> 
+  summarise(count_bin = n()) |> 
+  ungroup() |>
+  filter(vt_bin %in% c("8-9 cc/kg","9-10 cc/kg", "10-11 cc/kg", "11-12 cc/kg", ">= 12 cc/kg")) |> 
+  group_by(hospital_id) |> 
+  mutate(pct_over_8 = sum(count_bin) / count_hosp) |> 
+  dplyr::select(hospital_id, pct_over_8) |> 
+  distinct() |>
+  arrange(pct_over_8) |>  
+  pull(hospital_id)
+
+
 ###### Main Figure how Male vs Female by Category
-summary_data_bar <- ltvv_female %>%
-    filter(hospital_id %in% icu_hosp_ranks_8cc) |> 
-  mutate(hospital_id = factor(hospital_id, levels = rev(icu_hosp_ranks_8cc))) |> 
+summary_data_bar <- ltvv_female_table %>%
+  filter(hospital_id %in% icu_hosp_ranks_8cc) |> 
+  mutate(hospital_id = factor(hospital_id, levels = rev(icu_hosp_ranks_8cc_female))) |> 
   group_by(hospital_id, sex_category) %>%
   mutate(
     total_n = sum(n),
     proportion = n / total_n
   ) %>%
-  ungroup()
+  ungroup() |> 
+  mutate(
+    vt_bin = factor(vt_bin, levels = rev(c("< 4 cc/kg", "4-5 cc/kg",
+                                           "5-6 cc/kg", "6-7 cc/kg",
+                                           "7-8 cc/kg" , "8-9 cc/kg",
+                                           "9-10 cc/kg", "10-11 cc/kg",
+                                           "11-12 cc/kg", ">= 12 cc/kg")))
+  ) 
 
 
+  
 # Define a custom color palette
 custom_colors <- c(
+  "< 4 cc/kg" = "darkgreen",
   "4-5 cc/kg" = "green",
   "5-6 cc/kg" = "lightgreen",
   "6-7 cc/kg" = "lightgreen",
@@ -235,62 +269,33 @@ custom_colors <- c(
 # Proportional bar chart
 ggplot(summary_data_bar, aes(x = proportion, y = hospital_id, fill = vt_bin)) +
   geom_bar(stat = "identity") +
-  facet_wrap(~ sex_category) +
+  facet_wrap(~ sex_category, 
+    labeller = as_labeller(str_to_title)  # Capitalize facet labels
+    ) +
   labs(
     title = "Proportion of Tidal Volume Categories by Hospital and Sex",
-    x = "Proportion tidal volume per IBW",
-    y = "Hospital",
+    x = "Tidal Volume per IBW (%)",
+    y = "",
     fill = "Tidal Volume Category"
   ) +
-  scale_fill_manual(values = custom_colors) +  # Apply the custom color palette
+  scale_fill_brewer(palette = "RdYlBu", direction = 1) +
+  
+  # scale_fill_manual(values = custom_colors) +  # Apply the custom color palette
   theme_minimal() +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),  # Angle x-axis labels for better readability
     legend.title = element_text(size = 10, face = "bold"),
-    plot.title = element_text(size = 14, face = "bold"),
-    legend.position = "top"
-  ) 
+    plot.title = element_text(size = 16, face = "bold"),
+    strip.text = element_text(size = 12, face = "bold"),  # Make facet labels bold
 
-
-
-
-
-####################################
-# Violin plot for your own viewing
-
-ltvv_variation |>
-  filter(hospital_id %in% icu_hosp_ranks_8cc) |> 
-  mutate(hospital_id = factor(hospital_id, levels = rev(icu_hosp_ranks_8cc), labels = rev(str_to_title(icu_hosp_ranks_8cc)))) |> 
-  mutate(sex_category = factor(sex_category,
-                      levels = c("male", "female"),
-                      labels = c("Male", "Female"))) |> 
-  filter(vt_cckg < 15) |> 
-  ggplot(aes(x = hospital_id, y = vt_cckg, fill = sex_category )) + 
-  # bw options c("nrd0", "nrd", "ucv", "bcv", "SJ-ste", "SJ-dpi"),
-    geom_violin(position="dodge", bw = "bcv", alpha=0.4, trim = TRUE, scale = "width", draw_quantiles = c(0.5)) +
-  # scale_fill_brewer(palette = "RdBu", direction = 1) +
-  labs(
-    title = "Set tidal volume in first 24 hours by hospital",
-    x = "Hospital",
-    y = "Set Tidal Volume (cc/kg)"
+    legend.position = "top",
+    legend.direction = "horizontal"  # Set legend direction to horizontal
   ) +
-      theme_ipsum(axis_title_just = "m",
-                  axis_title_size =  15)  +
+  guides(fill = guide_legend(nrow = 1, byrow = TRUE, reverse = TRUE))  # Make legend have one row
 
-  # theme_minimal() + # This theme provides a clean and modern look to the plot
-  scale_fill_manual(values = c("Male" = "blue", "Female" = "green")) + # Manual colors for gender  
-theme(
-  legend.title = element_blank(),
-  plot.background = element_blank(),
-  panel.grid = element_blank(),
-  panel.background = element_blank(),
-  panel.grid.major = element_blank(), 
-               panel.grid.minor = element_blank(),
-  axis.title.y = (element_text(margin = margin(r = 20))),
-  axis.title.x = (element_text(margin = margin(t = 20)))
-)
 
-  
+
+
 
 
 ```
