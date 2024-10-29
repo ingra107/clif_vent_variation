@@ -314,7 +314,7 @@ icu_hosp_ranks_8cc <- ltvv_variation |>
     vt_bin %in% c("8-9 cc/kg","9-10 cc/kg", "10-11 cc/kg", "11-12 cc/kg", ">= 12 cc/kg"), 1,
     default = 0)) |> 
   group_by(hospital_id) |> 
-  mutate(pct_over_8 = sum(htvv) / count_hosp) |> 
+  mutate(pct_over_8 = sum(htvv*count_bin) / count_hosp) |> 
   dplyr::select(hospital_id, pct_over_8) |> 
   distinct() |>
   arrange(pct_over_8) |>  
@@ -672,9 +672,12 @@ ltvv_variation |>
                       levels = c("male", "female"),
                       labels = c("Male", "Female"))) |> 
   filter(vt_cckg < 15) |> 
+    group_by(hospital_id, sex_category) |>
+  filter(n() > 1) |>  # Keep only groups with more than one observation
+  ungroup() |> 
   ggplot(aes(x = hospital_id, y = vt_cckg, fill = sex_category )) + 
   # bw options c("nrd0", "nrd", "ucv", "bcv", "SJ-ste", "SJ-dpi"),
-    geom_violin(position="dodge", bw = "bcv", alpha=0.4, trim = TRUE, scale = "width", draw_quantiles = c(0.5)) +
+    geom_violin(position="dodge", bw = "nrd0", alpha=0.4, trim = TRUE, scale = "width", draw_quantiles = c(0.5)) +
   # scale_fill_brewer(palette = "RdBu", direction = 1) +
   labs(
     title = "Set tidal volume in first 24 hours by hospital",
@@ -978,11 +981,11 @@ df_pre_laps2_prep2 <- df_pre_laps2_prep1 |>
   
   # get the most recent lab (aka last) based on recorded_dttm
     mutate(
-      bun_recent                = flast(bun),
-      creatinine_recent         = flast(creatinine),
-      bicarbonate_recent        = flast(bicarbonate),
-      anion_gap_recent          = flast(anion_gap),
-      sodium_recent             = flast(sodium)
+      bun_recent                = flast(bun, na.rm = TRUE),
+      creatinine_recent         = flast(creatinine, na.rm = TRUE),
+      bicarbonate_recent        = flast(bicarbonate, na.rm = TRUE),
+      anion_gap_recent          = flast(anion_gap, na.rm = TRUE),
+      sodium_recent             = flast(sodium, na.rm = TRUE)
            ) |> 
   ungroup() |> 
   dplyr::select(clif_hospitalizations_joined_id, ends_with("recent")) |> 

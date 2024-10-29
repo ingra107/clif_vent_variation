@@ -1053,12 +1053,12 @@ ni_toc()
 ##~~ clean vitals and get ibw
 ######################
 
-# quickly get back to things without doing the above
-if(!exists("df_resp_support")){
-  load("output/intermediate/most_recent_save_resp.Rdata")
-
-  df_resp_support <- read_parquet(paste0("output/intermediate/df_resp_support_", most_recent_save_resp,".parquet"))
-}
+# # quickly get back to things without doing the above
+# if(!exists("df_resp_support")){
+#   load("output/intermediate/most_recent_save_resp.Rdata")
+# 
+#   df_resp_support <- read_parquet(paste0("output/intermediate/df_resp_support_", most_recent_save_resp,".parquet"))
+# }
 
 ##~~~~~~~~~~~~~
 ##~~ spo2
@@ -1472,13 +1472,13 @@ df_hourly_resp_support <- df_hourly_resp_support2 |>
 # df_hourly_resp_support |> group_by(pick(colnames(df_hourly_resp_support))) |> filter(n() > 1) 
 
 
-
-
-write_parquet(df_hourly_resp_support, paste0("output/intermediate/df_hourly_resp_support_", Sys.Date(), ".parquet"))
-
-# saving system date today
-most_recent_save_hourly <- Sys.Date()
-save(most_recent_save_hourly, file = "output/intermediate/most_recent_save_hourly.Rdata")
+# 
+# 
+# write_parquet(df_hourly_resp_support, paste0("output/intermediate/df_hourly_resp_support_", Sys.Date(), ".parquet"))
+# 
+# # saving system date today
+# most_recent_save_hourly <- Sys.Date()
+# save(most_recent_save_hourly, file = "output/intermediate/most_recent_save_hourly.Rdata")
 
 
 hosp_id_count <- df_hourly_resp_support |> count(hospital_id) |> nrow()
