@@ -433,6 +433,117 @@ ggplot(model_coefficients, aes(x = term, y = estimate, ymin = conf.low, ymax = c
 ggsave("output/final/variables_across_sites.png", width = 10, height = 8, dpi = 300)
 ```
 
+
+## Sex_category / Height Models
+```{r}
+# Step 1: Add Model Identifier to Each Data Frame
+
+# Assuming your data frames are named as follows:
+df1 <- model_coefs_sex_category_height_ltvv
+df2 <- model_coefs_sex_category_ltvv
+df3 <- model_coefs_sex_interaction_height_ltvv
+df4 <- model_coefs_sex_interaction_height_RCS_ltvv
+
+# Add a ModelName column to each
+df1$ModelName <- "Sex Category + Height + LTVV"
+df2$ModelName <- "Sex Category + LTVV"
+df3$ModelName <- "Sex Interaction + Height + LTVV"
+df4$ModelName <- "Sex Interaction + Height (RCS) + LTVV"
+
+# Step 2: Combine Data Frames
+combined_df <- bind_rows(df1, df2, df3, df4)
+
+
+sex_category_df <- combined_df %>%
+  filter(Variable == "sex_categorymale") %>%
+  mutate(
+    Site = as.factor(Site),
+    ModelName = as.factor(ModelName)
+  )
+
+
+height_df <- combined_df %>%
+  filter(Variable == "height_inches") %>%
+  mutate(
+    Site = as.factor(Site),
+    ModelName = as.factor(ModelName)
+  )
+
+# For sex_category
+sex_category_df <- sex_category_df %>%
+  mutate(Site = factor(Site, levels = sort(unique(Site))))
+
+# For height
+height_df <- height_df %>%
+  mutate(Site = factor(Site, levels = sort(unique(Site))))
+
+# Define position dodge to separate points from different models
+pd <- position_dodge(width = 0.6)
+
+# Create the plot for "sex_category"
+plot_sex_category <- ggplot(sex_category_df, aes(x = Estimate, y = Site, color = ModelName)) +
+  geom_point(position = pd, size = 2) +
+  geom_errorbar(
+    aes(xmin = LowerCI, xmax = UpperCI),
+    width = 0.2,
+    position = pd
+  ) +
+  labs(
+    title = "Estimates of 'Sex Category' by Hospital and Model",
+    x = "Estimate",
+    y = "Hospital",
+    color = "Model"
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+    plot.title = element_text(size = 14, face = "bold")
+  )
+
+# Display the plot
+print(plot_sex_category)
+
+
+
+
+# Create the plot for "height"
+plot_height <- ggplot(height_df, aes(x = Estimate, y = Site, color = ModelName)) +
+  geom_point(position = pd, size = 2) +
+  geom_errorbar(
+    aes(xmin = LowerCI, xmax = UpperCI),
+    width = 0.2,
+    position = pd
+  ) +
+  labs(
+    title = "Estimates of 'Height' by Hospital and Model",
+    x = "Estimate",
+    y = "Hospital",
+    color = "Model"
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+    plot.title = element_text(size = 14, face = "bold")
+  )
+
+
+# Display the plot
+print(plot_height)
+# For sex_category
+sex_estimates <- sex_category_df %>% select(Estimate, LowerCI, UpperCI)
+sex_x_limits <- range(c(sex_estimates$Estimate, sex_estimates$LowerCI, sex_estimates$UpperCI))
+
+plot_sex_category <- plot_sex_category + xlim(sex_x_limits)
+
+# For height
+height_estimates <- height_df %>% select(Estimate, LowerCI, UpperCI)
+height_x_limits <- range(c(height_estimates$Estimate, height_estimates$LowerCI, height_estimates$UpperCI))
+
+plot_height <- plot_height + xlim(height_x_limits)
+
+
+```
+
 # Abstract
 
 ## Introduction

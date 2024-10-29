@@ -8,7 +8,11 @@
     -   If not... no worries... Follow instructions in the
         [config/README.md](/config/README.md) file for instructions
 
-2.  Run [vent_variation_qmd](01_ventilation_variation_script.qmd)
+2.  Run [00_setup_script](00_renv_restore.R)
+
+3.  Run [01_cohorting_script](01_cohorting.qmd)
+
+4.  Run [02_analysis_script](02_statistical_analysis.qmd)
 
     -   **After opening** you may have to click **install** at the top
         of R studio!!... then run

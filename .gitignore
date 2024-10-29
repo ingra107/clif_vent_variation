@@ -5,6 +5,7 @@
 .bib
 .Rhistory
 output/intermediate/
+output/intermediate/clean_db
 output/final/
 abstract_aggregation_ATS_2024.html
 aggregate_data
