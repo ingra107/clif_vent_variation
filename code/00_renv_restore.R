@@ -75,7 +75,7 @@ plan(multisession)
 ## create output directories 
 create_directories <- function() {
   # Define the directories
-  dirs <- c("output", "output/intermediate", "output/final",  "output/intermediate/clean_db",)
+  dirs <- c("output", "output/intermediate", "output/final",  "output/intermediate/clean_db")
   
   # Loop through and create directories if they don't exist
   for (dir in dirs) {
