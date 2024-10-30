@@ -452,111 +452,6 @@ ggsave("output/final/variables_across_sites.png", width = 10, height = 8, dpi = 
 
 ## Sex_category / Height Models
 ```{r}
-# Step 1: Add Model Identifier to Each Data Frame
-
-# Assuming your data frames are named as follows:
-df1 <- model_coefs_sex_category_height_ltvv
-df2 <- model_coefs_sex_category_ltvv
-df3 <- model_coefs_sex_interaction_height_ltvv
-df4 <- model_coefs_sex_interaction_height_RCS_ltvv
-
-# Add a ModelName column to each
-df1$ModelName <- "Sex Category + Height + LTVV"
-df2$ModelName <- "Sex Category + LTVV"
-df3$ModelName <- "Sex Interaction + Height + LTVV"
-df4$ModelName <- "Sex Interaction + Height (RCS) + LTVV"
-
-# Step 2: Combine Data Frames
-combined_df <- bind_rows(df1, df2, df3, df4)
-
-
-sex_category_df <- combined_df %>%
-  filter(Variable == "sex_categorymale") %>%
-  mutate(
-    Site = as.factor(Site),
-    ModelName = as.factor(ModelName)
-  )
-
-
-height_df <- combined_df %>%
-  filter(Variable == "height_inches") %>%
-  mutate(
-    Site = as.factor(Site),
-    ModelName = as.factor(ModelName)
-  )
-
-# For sex_category
-sex_category_df <- sex_category_df %>%
-  mutate(Site = factor(Site, levels = sort(unique(Site))))
-
-# For height
-height_df <- height_df %>%
-  mutate(Site = factor(Site, levels = sort(unique(Site))))
-
-# Define position dodge to separate points from different models
-pd <- position_dodge(width = 0.6)
-
-# Create the plot for "sex_category"
-plot_sex_category <- ggplot(sex_category_df, aes(x = Estimate, y = Site, color = ModelName)) +
-  geom_point(position = pd, size = 2) +
-  geom_errorbar(
-    aes(xmin = LowerCI, xmax = UpperCI),
-    width = 0.2,
-    position = pd
-  ) +
-  labs(
-    title = "Estimates of 'Sex Category' by Hospital and Model",
-    x = "Estimate",
-    y = "Hospital",
-    color = "Model"
-  ) +
-  theme_bw() +
-  theme(
-    legend.position = "bottom",
-    plot.title = element_text(size = 14, face = "bold")
-  )
-
-# Display the plot
-print(plot_sex_category)
-
-
-
-
-# Create the plot for "height"
-plot_height <- ggplot(height_df, aes(x = Estimate, y = Site, color = ModelName)) +
-  geom_point(position = pd, size = 2) +
-  geom_errorbar(
-    aes(xmin = LowerCI, xmax = UpperCI),
-    width = 0.2,
-    position = pd
-  ) +
-  labs(
-    title = "Estimates of 'Height' by Hospital and Model",
-    x = "Estimate",
-    y = "Hospital",
-    color = "Model"
-  ) +
-  theme_bw() +
-  theme(
-    legend.position = "bottom",
-    plot.title = element_text(size = 14, face = "bold")
-  )
-
-
-# Display the plot
-print(plot_height)
-# For sex_category
-sex_estimates <- sex_category_df %>% select(Estimate, LowerCI, UpperCI)
-sex_x_limits <- range(c(sex_estimates$Estimate, sex_estimates$LowerCI, sex_estimates$UpperCI))
-
-plot_sex_category <- plot_sex_category + xlim(sex_x_limits)
-
-# For height
-height_estimates <- height_df %>% select(Estimate, LowerCI, UpperCI)
-height_x_limits <- range(c(height_estimates$Estimate, height_estimates$LowerCI, height_estimates$UpperCI))
-
-plot_height <- plot_height + xlim(height_x_limits)
-
 
 # Create height quantiles
 height_breaks <- c(0, 60, 63, 66, 69, 72, 100)  # Corresponds to < 5 feet, 5-5’3”, 5’3”-5’6”, ..., >6’3”
@@ -565,7 +460,8 @@ height_labels <- c("< 5 feet", "5-5’3”", "5’3”-5’6”", "5’6”-5’
 all_predictions <- model_preds_sex_category_height_ltvv |> 
   mutate(Model = factor(Model)) |> 
   mutate(sex_category = group) |> 
-  mutate(height_inches = x)
+  mutate(height_inches = x) |> 
+    filter(Model != "Model 5: htvv ~ Sex Category * rcs(Height) ~ HTVV (Binary)") 
 
 
 
@@ -596,11 +492,82 @@ ggplot(all_predictions, aes(x = height_inches, y = predicted, color = sex_catego
   )
 
 
+#### JUST BINARY
+# Ensure Model is a factor
+predictions_model5 <- model_preds_sex_category_height_ltvv |> 
+  filter(Model == "Model 5: htvv ~ Sex Category * rcs(Height) ~ HTVV (Binary)") |> 
+  mutate(Model = factor(Model)) |> 
+  mutate(sex_category = group) |> 
+  mutate(height_inches = x)
+
+# Plot all models together
+ggplot(predictions_model5, aes(x = height_inches, y = predicted, color = sex_category)) +
+  geom_line(size = 1) +
+  # facet_wrap(~ Model) +
+  labs(
+    title = "Predicted VT per kg IBW by Height and Sex Category",
+    x = "Height (inches)",
+    y = "Predicted VT per kg IBW",
+    color = "Sex Category"
+  ) +
+    scale_x_continuous(
+    limits = c(min_height, max_height),
+    breaks = height_breaks,
+    minor_breaks = NULL  # Remove minor grid lines if desired
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    plot.title = element_text(size = 14, face = "bold"),
+    strip.text = element_text(size = 12, face = "bold")
+  )
+
 
 
 ```
 
-# Abstract
+
+## getting variables for abstract
+
+```{r}
+
+
+# Total number of critically ill adults
+total_patients <- sum(hospital_table1_summary$N, na.rm = TRUE)
+
+# Mean age and standard deviation
+mean_age <- mean(as.numeric(gsub(" \\(.*\\)", "", hospital_table1_summary$Age)), na.rm = TRUE)
+sd_age <- sd(as.numeric(gsub(" \\(.*\\)", "", hospital_table1_summary$Age)), na.rm = TRUE)
+
+# Total number and percentage of females
+total_females <- sum(as.numeric(gsub(" \\(.*\\)", "", hospital_table1_summary$`Sex, Female`)), na.rm = TRUE)
+percent_females <- (total_females / total_patients) * 100
+
+# Total number and percentage of Black patients
+total_black <- sum(as.numeric(gsub(" \\(.*\\)", "", hospital_table1_summary$Black)), na.rm = TRUE)
+percent_black <- (total_black / total_patients) * 100
+
+# Total number and percentage of Hispanic patients
+total_hispanic <- sum(as.numeric(gsub(" \\(.*\\)", "", hospital_table1_summary$`Ethnicity, Hispanic`)), na.rm = TRUE)
+percent_hispanic <- (total_hispanic / total_patients) * 100
+
+# Total number of health systems and hospitals
+total_health_systems <- length(unique(hospital_table1_summary$health_system))
+total_hospitals <- length(unique(hospital_table1_summary$Hospital))
+
+# Print the results
+cat("Methods: The Common Longitudinal Intensive Care Unit (CLIF) consortium is comprised of", 
+    total_health_systems, "US academic health systems that use a standardized data format to facilitate federated studies of critical illness. We identified all adult patients admitted [inclusion criteria] from [date range], excluding patients with [exclusion criteria].\n")
+
+cat("Results: Of the", total_patients, "critically ill adults, the mean age was", round(mean_age, 1), "years (standard deviation", round(sd_age, 1), "years) and there were", 
+    total_females, "(", round(percent_females, 1), "%) females,", total_black, "(", round(percent_black, 1), "%) black patients, and", 
+    total_hispanic, "(", round(percent_hispanic, 1), "%) Hispanic patients across", total_health_systems, "healthcare systems and", 
+    total_hospitals, "hospitals.")
+
+```
+
+
+# Abstract Sex/Height LTVV
 
 ## Introduction
 
@@ -615,7 +582,42 @@ Hospital variation in critical care outcomes
 @Kahn__2006__Hospitalvolumeand] and processes of care
 [@Vranas__2020__TheAssociationof] exist, but the extent to which this
 variation may affect research is less well known. We sought to explore
-the underlying variation in care delivery and prediction methodology in
+the underlying variation in severity of illness scores and their association with outcomes in
 mechanically ventilated patients with acute respiratory failure.
 
+
 ## Methods
+
+Methods: The Common Longitudinal Intensive Care Unit (CLIF) consortium is comprised of **`r total_health_systems`** US academic health systems that use a standardized data format to facilitate federated studies of critical illness. We identified all adult patients admitted [inclusion criteria] from [date range], excluding patients with [exclusion criteria].
+
+Results: Of the **`r total_patients`** critically ill adults, the mean age was **`r round(mean_age, 1)`** years (standard deviation **`r round(sd_age, 1)`** years), and there were **`r total_females`** (**`r round(percent_females, 1)`%**) females, **`r total_black`** (**`r round(percent_black, 1)`%**) Black patients, and **`r total_hispanic`** (**`r round(percent_hispanic, 1)`%**) Hispanic patients across **`r total_health_systems`** healthcare systems and **`r total_hospitals`** hospitals. 
+
+
+
+
+# Abstract Prediction Methodology
+
+## Introduction
+
+Patient outcomes are determined by many factors other than their
+critical illness.
+
+These include processes of care and institutional factors.
+[@kerlin_physician-level_2018; @Gaieski_2014_Therelationshipbetween]
+
+Hospital variation in critical care outcomes
+[@Merchant__2014__Hospitalvariationin; @Vigen2014;
+@Kahn__2006__Hospitalvolumeand] and processes of care
+[@Vranas__2020__TheAssociationof] exist, but the extent to which this
+variation may affect research is less well known. We sought to explore
+the underlying variation in severity of illness scores and their association with outcomes in
+mechanically ventilated patients with acute respiratory failure.
+
+
+## Methods
+
+Methods: The Common Longitudinal Intensive Care Unit (CLIF) consortium is comprised of **`r total_health_systems`** US academic health systems that use a standardized data format to facilitate federated studies of critical illness. We identified all adult patients admitted [inclusion criteria] from [date range], excluding patients with [exclusion criteria].
+
+Results: Of the **`r total_patients`** critically ill adults, the mean age was **`r round(mean_age, 1)`** years (standard deviation **`r round(sd_age, 1)`** years), and there were **`r total_females`** (**`r round(percent_females, 1)`%**) females, **`r total_black`** (**`r round(percent_black, 1)`%**) Black patients, and **`r total_hispanic`** (**`r round(percent_hispanic, 1)`%**) Hispanic patients across **`r total_health_systems`** healthcare systems and **`r total_hospitals`** hospitals. 
+
+

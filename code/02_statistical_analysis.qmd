@@ -1185,7 +1185,7 @@ intubation_data <- df_oxygenation_index_analysis_prep1 |>
   left_join(clif_patient |> dplyr::select(-hospitalization_id) |> distinct()) |> 
   left_join(df_pf_ratio |> dplyr::select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, pf_ratio) |> distinct()) |>
   left_join(df_sf_ratio |> dplyr::select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, sf_ratio) |> distinct()) |>
-  left_join(df_laps2_scores |> dplyr::select(clif_hospitalizations_joined_id, recorded_date, laps2) |> distinct()) |> 
+  left_join(clif_laps2_scores |> dplyr::select(clif_hospitalizations_joined_id, recorded_date, laps2) |> distinct()) |> 
   left_join(clif_hospitalization |> dplyr::select(clif_hospitalizations_joined_id, age_at_admission, admission_dttm, discharge_dttm
                                            # admission_type_category
                                            ) |> distinct()) |> 
@@ -2060,22 +2060,25 @@ write.csv(results_sex_interaction_height_ltvv_rcs, paste0("output/final/model_co
 ```
 
 
-## New one 
+## Binary HTVV with Sex/Height Interaction RCS
 ```{r}
+
+htvv_analysis <- htvv_analysis |> 
+  mutate(htvv = (fifelse(vt_per_kg_ibw > 8, 1, 0)))
+
 ##########################
 ### BINARY Height Interaction RCS ##
 #########################
 if (hosp_id_count == 1) {
   # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
-  mixed_model_sex_interaction_height_ltvv_rcs_bin <- glmer(
+  mixed_model_sex_interaction_height_ltvv_rcs_bin <- glm(
     htvv ~
       sex_category * rcs(height_inches) +
       age_at_admission +
       laps2 +
       pf_ratio +
       ph +          # Include ph in the model
-      pco2 +        # Include pco2 in the model
-      (1 | patient_id),
+      pco2,        # Include pco2 in the model
     data = htvv_analysis,
     family = binomial(link = "logit")
   )
@@ -2084,7 +2087,7 @@ if (hosp_id_count == 1) {
 
 if (hosp_id_count > 1) {
   # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
-  mixed_model_sex_interaction_height_ltvv_rcs_bin <- glmer(
+  mixed_model_sex_interaction_height_ltvv_rcs_bin <- glm(
     htvv ~
       sex_category * rcs(height_inches) +
       age_at_admission +
@@ -2093,8 +2096,7 @@ if (hosp_id_count > 1) {
       pf_ratio +
       ph +          # Include ph in the model
       pco2 +        # Include pco2 in the model
-      hospital_id +
-      (1 | patient_id),
+      hospital_id, 
     data = htvv_analysis,
     family = binomial(link = "logit")
   )
@@ -2213,7 +2215,8 @@ all_predictions <- bind_rows(
   predictions_model1_expanded,
   predictions_model2,
   predictions_model3,
-  predictions_model4
+  predictions_model4,
+  predictions_model5
 ) |> as.data.frame() |> 
     mutate(health_system = site_name) 
 
@@ -2241,10 +2244,18 @@ all_predictions <- all_predictions |>
   mutate(sex_category = group) |> 
   mutate(height_inches = x)
 
+
+# Ensure Model is a factor
+predictions_model5 <- all_predictions |> 
+  filter(Model == "Model 5: htvv ~ Sex Category * rcs(Height) ~ HTVV (Binary)") |> 
+  mutate(Model = factor(Model)) |> 
+  mutate(sex_category = group) |> 
+  mutate(height_inches = x)
+
 # Plot all models together
-ggplot(all_predictions, aes(x = height_inches, y = predicted, color = sex_category)) +
+ggplot(predictions_model5, aes(x = height_inches, y = predicted, color = sex_category)) +
   geom_line(size = 1) +
-  facet_wrap(~ Model) +
+  # facet_wrap(~ Model) +
   labs(
     title = "Predicted VT per kg IBW by Height and Sex Category",
     x = "Height (inches)",
