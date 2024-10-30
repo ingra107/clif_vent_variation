@@ -20,6 +20,9 @@ editor_options:
 # Cohort identification
 
 ```{r}
+
+start.time.full <- Sys.time()
+
 #~~~~~~~~~~
 # ID cohort
 #~~~~~~~~~~
@@ -2665,6 +2668,13 @@ save_data_frames(data_frames_to_save)
 
 
 ```{r}
+
+Sys.time()
+end.time.full <- Sys.time()
+full_time.taken <- round(end.time.full - start.time.full, 2)
+full_time.taken
+
+
 message("##########################################
 You have completed Cohorting!!! Woohooo!!! \n You also have saved your data \n Please proceed on to 02_statistical_analysis script \n 
 FYI you can JUST run the 02_stats script if no changes are made to the cohort script in the future!!

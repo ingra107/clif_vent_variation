@@ -32,7 +32,7 @@ if(!exists("site_name")) {
 # load in saved files
 ```{r}
 
-
+start.time.full <- Sys.time()
 
 load_data_frames <- function(data_frame_names, output_dir = "output/intermediate/clean_db") {
   # Ensure the output directory exists
@@ -2745,6 +2745,13 @@ ggsurvplot(km_oi_fit, data = OI_analysis_test,
 ```
 
 ```{r}
+
+
+Sys.time()
+end.time.full <- Sys.time()
+full_time.taken <- round(end.time.full - start.time.full, 2)
+full_time.taken
+
 message("YOU DID IT... YOU ARE DONE!!!!")
 ```
 
