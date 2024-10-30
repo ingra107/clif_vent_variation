@@ -33,11 +33,11 @@ The following tables are required:
     `discharge_category`
 3.  **vitals**: `hospitalization_id`, `recorded_dttm`, `vital_category`,
     `vital_value` - `vital_category` = 'heart_rate', 'resp_rate', 'sbp',
-    'dbp', 'map', 'resp_rate', 'spo2'
+    'dbp', 'resp_rate', 'spo2'
 4.  **labs**: `hospitalization_id`, `lab_result_dttm`, `lab_order_dttm`,
     `lab_collect_dttm`, `lab_category`, `lab_name`, `lab_value_numeric`,
-    `reference_unit`, `lab_category` = 'sodium', 'albumin', 'anion_gap',
-    'bilirubin_total', 'bun', 'carbon_dioxide', 'creatinine',
+    `reference_unit`, `lab_category` = 'sodium', 'albumin', 'bilirubin_total',
+    'bun', 'carbon_dioxide', 'creatinine',
     'glucose_serum', 'hemoglobin', 'lactate', 'pco2_arterial',
     'po2_arterial', 'ph_arterial', 'platelet_count', 'so2_arterial',
     'sodium', 'troponin_i', 'wbc'
@@ -46,9 +46,9 @@ The following tables are required:
 6.  **respiratory_support**: `hospitalization_id`, `recorded_dttm`,
     `device_name`, `device_category`, `mode_name`, `mode_category`,
     `fio2_set`, `lpm_set`, `tidal_volume_set`, `resp_rate_set`,
-    `pressure_support_set`, `peep_set`, `tidal_volume_obs`,
+    `pressure_support_set`, `peep_set`, *`tidal_volume_obs`* (optional),
     `plateau_pressure_obs`, `peak_inspiratory_pressure_obs`,
-    `mean_airway_pressure_obs`, `minute_vent_obs`, `tracheostomy`
+    *`mean_airway_pressure_obs`* (optional), `tracheostomy`
 7.  **patient_assessments**: `hospitalization_id`, `recorded_dttm`,
     `numerical_value`, `assessment_category` = "gcs_total"
 
