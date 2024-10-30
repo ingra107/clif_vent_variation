@@ -2003,7 +2003,7 @@ if (hosp_id_count == 1) {
   # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
   mixed_model_sex_interaction_height_ltvv_rcs <- lmer(
     vt_per_kg_ibw ~
-      sex_category * rcs(height_inches) +
+      sex_category * rcs(height_inches,  c(63, 66, 69, 72, 75)) +
       age_at_admission +
       laps2 +
       # race_category +
@@ -2020,7 +2020,7 @@ if (hosp_id_count > 1) {
   # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
   mixed_model_sex_interaction_height_ltvv_rcs <- lmer(
     vt_per_kg_ibw ~
-      sex_category * rcs(height_inches) +
+      sex_category * rcs(height_inches,  c(63, 66, 69, 72, 75)) +
       age_at_admission +
       laps2 +
       # race_category +
@@ -2057,23 +2057,24 @@ results_sex_interaction_height_ltvv_rcs <- model_results %>%
   )
 
 write.csv(results_sex_interaction_height_ltvv_rcs, paste0("output/final/model_coefs_sex_interaction_height_RCS_ltvv__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
+
 ```
 
-
-## Binary HTVV with Sex/Height Interaction RCS
+##  without height bin
 ```{r}
 
 htvv_analysis <- htvv_analysis |> 
   mutate(htvv = (fifelse(vt_per_kg_ibw > 8, 1, 0)))
 
+
 ##########################
-### BINARY Height Interaction RCS ##
+### No Height BINARY ##
 #########################
 if (hosp_id_count == 1) {
   # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
-  mixed_model_sex_interaction_height_ltvv_rcs_bin <- glm(
+  mixed_model_sex_category_bin <- glm(
     htvv ~
-      sex_category * rcs(height_inches) +
+      sex_category +
       age_at_admission +
       laps2 +
       pf_ratio +
@@ -2087,9 +2088,9 @@ if (hosp_id_count == 1) {
 
 if (hosp_id_count > 1) {
   # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
-  mixed_model_sex_interaction_height_ltvv_rcs_bin <- glm(
+  mixed_model_sex_category_bin <- glm(
     htvv ~
-      sex_category * rcs(height_inches) +
+      sex_category +
       age_at_admission +
       laps2 +
       # race_category +
@@ -2103,11 +2104,11 @@ if (hosp_id_count > 1) {
 }
 
 # Tidy the mixed model results
-model_results <- tidy(mixed_model_sex_interaction_height_ltvv_rcs_bin, effects = "fixed", conf.int = TRUE)
+model_results <- tidy(mixed_model_sex_category_bin, effects = "fixed", conf.int = TRUE)
 print(model_results)
 
 # Select relevant columns and rename them
-results_sex_interaction_height_ltvv_rcs_bin <- model_results %>%
+results_sex_category_bin <- model_results %>%
   dplyr::select(
     Variable = term, Estimate = estimate, StdError = std.error, 
     LowerCI = conf.low, UpperCI = conf.high, 
@@ -2116,7 +2117,7 @@ results_sex_interaction_height_ltvv_rcs_bin <- model_results %>%
   ) %>%
   # Add StudyID and Model columns
   mutate(
-    StudyID = "sex_interaction_height_ltvv_rcs_bin",  
+    StudyID = "sex_category_bin",  
     Model = "MixedEffectsModel",
     Site = site_name
   ) %>%
@@ -2128,7 +2129,211 @@ results_sex_interaction_height_ltvv_rcs_bin <- model_results %>%
     Statistic, PValue
   )
 
-write.csv(results_sex_interaction_height_ltvv_rcs_bin, paste0("output/final/model_coefs_sex_interaction_height_RCS_ltvv__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
+write.csv(results_sex_category_bin, paste0("output/final/model_coefs_sex_category_bin_ltvv__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
+```
+
+## Height fixed effect bin
+
+```{r}
+##########################
+### sex_category_height_bin  ##
+#########################
+if (hosp_id_count == 1) {
+  # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
+  mixed_model_sex_category_height_bin <- glm(
+    htvv ~
+      sex_category + height_inches +
+      age_at_admission +
+      laps2 +
+      pf_ratio +
+      ph +          # Include ph in the model
+      pco2,        # Include pco2 in the model
+    data = htvv_analysis,
+    family = binomial(link = "logit")
+  )
+}
+
+
+if (hosp_id_count > 1) {
+  # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
+  mixed_model_sex_category_height_bin <- glm(
+    htvv ~
+      sex_category + height_inches +
+      age_at_admission +
+      laps2 +
+      # race_category +
+      pf_ratio +
+      ph +          # Include ph in the model
+      pco2 +        # Include pco2 in the model
+      hospital_id, 
+    data = htvv_analysis,
+    family = binomial(link = "logit")
+  )
+}
+
+# Tidy the mixed model results
+model_results <- tidy(mixed_model_sex_category_height_bin, effects = "fixed", conf.int = TRUE)
+print(model_results)
+
+# Select relevant columns and rename them
+results_sex_category_height_bin <- model_results %>%
+  dplyr::select(
+    Variable = term, Estimate = estimate, StdError = std.error, 
+    LowerCI = conf.low, UpperCI = conf.high, 
+    # DegreesFreedom = df, 
+    Statistic = statistic, PValue = p.value
+  ) %>%
+  # Add StudyID and Model columns
+  mutate(
+    StudyID = "sex_category_height_bin",  
+    Model = "MixedEffectsModel",
+    Site = site_name
+  ) %>%
+  # Rearrange columns
+  dplyr::select(
+    StudyID, Model, Site, Variable, Estimate, StdError, 
+    LowerCI, UpperCI, 
+    # DegreesFreedom, 
+    Statistic, PValue
+  )
+
+write.csv(results_sex_category_height_bin, paste0("output/final/model_coefs_sex_category_height_bin_ltvv__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
+```
+
+## Height Interaction bin
+```{r}
+##########################
+### sex_interaction_height_rcs_bin  ##
+#########################
+if (hosp_id_count == 1) {
+  # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
+  mixed_model_sex_interaction_height_bin <- glm(
+    htvv ~
+      sex_category*height_inches +
+      age_at_admission +
+      laps2 +
+      pf_ratio +
+      ph +          # Include ph in the model
+      pco2,        # Include pco2 in the model
+    data = htvv_analysis,
+    family = binomial(link = "logit")
+  )
+}
+
+
+if (hosp_id_count > 1) {
+  # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
+  mixed_model_sex_interaction_height_bin <- glm(
+    htvv ~
+      sex_category*height_inches +
+      age_at_admission +
+      laps2 +
+      # race_category +
+      pf_ratio +
+      ph +          # Include ph in the model
+      pco2 +        # Include pco2 in the model
+      hospital_id, 
+    data = htvv_analysis,
+    family = binomial(link = "logit")
+  )
+}
+
+# Tidy the mixed model results
+model_results <- tidy(mixed_model_sex_interaction_height_bin, effects = "fixed", conf.int = TRUE)
+print(model_results)
+
+# Select relevant columns and rename them
+results_sex_interaction_height_bin <- model_results %>%
+  dplyr::select(
+    Variable = term, Estimate = estimate, StdError = std.error, 
+    LowerCI = conf.low, UpperCI = conf.high, 
+    # DegreesFreedom = df, 
+    Statistic = statistic, PValue = p.value
+  ) %>%
+  # Add StudyID and Model columns
+  mutate(
+    StudyID = "sex_interaction_height_bin",  
+    Model = "MixedEffectsModel",
+    Site = site_name
+  ) %>%
+  # Rearrange columns
+  dplyr::select(
+    StudyID, Model, Site, Variable, Estimate, StdError, 
+    LowerCI, UpperCI, 
+    # DegreesFreedom, 
+    Statistic, PValue
+  )
+
+write.csv(results_sex_interaction_height_bin, paste0("output/final/model_coefs_sex_interaction_height_bin_ltvv__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
+```
+
+## height Interaction RCS bin
+```{r}
+
+
+##########################
+### sex_interaction_height_rcs_bin  ##
+#########################
+if (hosp_id_count == 1) {
+  # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
+  mixed_model_sex_interaction_height_rcs_bin <- glm(
+    htvv ~
+      sex_category * rcs(height_inches, c(63, 66, 69, 72, 75)) +
+      age_at_admission +
+      laps2 +
+      pf_ratio +
+      ph +          # Include ph in the model
+      pco2,        # Include pco2 in the model
+    data = htvv_analysis,
+    family = binomial(link = "logit")
+  )
+}
+
+
+if (hosp_id_count > 1) {
+  # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
+  mixed_model_sex_interaction_height_rcs_bin <- glm(
+    htvv ~
+      sex_category * rcs(height_inches, c(63, 66, 69, 72, 75)) +
+      age_at_admission +
+      laps2 +
+      # race_category +
+      pf_ratio +
+      ph +          # Include ph in the model
+      pco2 +        # Include pco2 in the model
+      hospital_id, 
+    data = htvv_analysis,
+    family = binomial(link = "logit")
+  )
+}
+
+# Tidy the mixed model results
+model_results <- tidy(mixed_model_sex_interaction_height_rcs_bin, effects = "fixed", conf.int = TRUE)
+print(model_results)
+
+# Select relevant columns and rename them
+results_sex_interaction_height_rcs_bin <- model_results %>%
+  dplyr::select(
+    Variable = term, Estimate = estimate, StdError = std.error, 
+    LowerCI = conf.low, UpperCI = conf.high, 
+    # DegreesFreedom = df, 
+    Statistic = statistic, PValue = p.value
+  ) %>%
+  # Add StudyID and Model columns
+  mutate(
+    StudyID = "sex_interaction_height_rcs_bin",  
+    Model = "MixedEffectsModel",
+    Site = site_name
+  ) %>%
+  # Rearrange columns
+  dplyr::select(
+    StudyID, Model, Site, Variable, Estimate, StdError, 
+    LowerCI, UpperCI, 
+    # DegreesFreedom, 
+    Statistic, PValue
+  )
+
+write.csv(results_sex_interaction_height_rcs_bin, paste0("output/final/model_coefs_sex_interaction_height_rcs_bin_ltvv__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
 ```
 
 
@@ -2205,8 +2410,37 @@ predictions_model3$Model <- "Model 3: Sex Category * Height ~ Vt"
 predictions_model4 <- ggpredict(mixed_model_sex_interaction_height_ltvv_rcs, terms = c("height_inches [all]", "sex_category"))
 predictions_model4$Model <- "Model 4: Sex Category * rcs(Height) ~ Vt"
 
-predictions_model5 <- ggpredict(mixed_model_sex_interaction_height_ltvv_rcs_bin, terms = c("height_inches [all]", "sex_category"))
-predictions_model5$Model <- "Model 5: htvv ~ Sex Category * rcs(Height) ~ HTVV (Binary)"
+
+
+# Generate predictions using ggeffects
+predictions_model55 <- ggpredict(mixed_model_sex_category_bin, terms = c("sex_category"))
+predictions_model55$Model <- "Model 5: Sex Category ~ HTVV (Binary)" 
+# changing things so we can row bind... this model doesn't have height 
+predictions_model5 <- predictions_model55 |> 
+  mutate(group = fcase(x == "female", "female", default = "male")) |> 
+  mutate(x = 0) |> 
+  filter(!is.na(group))
+
+# Create a sequence of height values
+height_seq <- seq(min_height, max_height, length.out = 200)
+
+# Expand Model 1 predictions across the height range
+predictions_model5_expanded <- predictions_model5 %>%
+  # rename(predicted = predicted, sex_category = x) %>%
+  # select(sex_category, predicted, conf.low, conf.high, Model) %>%
+  crossing(height_inches = height_seq) |> 
+  select(-x) |> 
+  mutate(x = height_inches)
+
+
+predictions_model6 <- ggpredict(mixed_model_sex_category_height_bin, terms = c("height_inches [all]", "sex_category"))
+predictions_model6$Model <- "Model 6: Sex Category + Height ~ HTVV (Binary)"
+
+predictions_model7 <- ggpredict(mixed_model_sex_interaction_height_bin, terms = c("height_inches [all]", "sex_category"))
+predictions_model7$Model <- "Model 7: Sex Category * Height ~ HTVV (Binary)"
+
+predictions_model8 <- ggpredict(mixed_model_sex_interaction_height_rcs_bin, terms = c("height_inches [all]", "sex_category"))
+predictions_model8$Model <- "Model 8: htvv ~ Sex Category * rcs(Height) ~ HTVV (Binary)"
 
 
 # Combine predictions
@@ -2216,7 +2450,11 @@ all_predictions <- bind_rows(
   predictions_model2,
   predictions_model3,
   predictions_model4,
-  predictions_model5
+  predictions_model5_expanded,
+  predictions_model6,
+  predictions_model7,
+  predictions_model8,
+  
 ) |> as.data.frame() |> 
     mutate(health_system = site_name) 
 
@@ -2239,23 +2477,19 @@ write.csv(all_predictions, paste0("output/final/model_preds_sex_category_height_
 # If including Model 1 in this plot seems confusing, you might choose to create separate plots or use different visual cues (e.g., dashed lines) to differentiate it.
 
 # Ensure Model is a factor
-all_predictions <- all_predictions |> 
+all_predictions_continuous <- all_predictions |> 
+  filter(!str_detect(Model, "Binary")) |> 
   mutate(Model = factor(Model)) |> 
   mutate(sex_category = group) |> 
   mutate(height_inches = x)
 
 
-# Ensure Model is a factor
-predictions_model5 <- all_predictions |> 
-  filter(Model == "Model 5: htvv ~ Sex Category * rcs(Height) ~ HTVV (Binary)") |> 
-  mutate(Model = factor(Model)) |> 
-  mutate(sex_category = group) |> 
-  mutate(height_inches = x)
+
 
 # Plot all models together
-ggplot(predictions_model5, aes(x = height_inches, y = predicted, color = sex_category)) +
+ggplot(all_predictions_continuous, aes(x = height_inches, y = predicted, color = sex_category)) +
   geom_line(size = 1) +
-  # facet_wrap(~ Model) +
+  facet_wrap(~ Model) +
   labs(
     title = "Predicted VT per kg IBW by Height and Sex Category",
     x = "Height (inches)",
@@ -2274,6 +2508,39 @@ ggplot(predictions_model5, aes(x = height_inches, y = predicted, color = sex_cat
     strip.text = element_text(size = 12, face = "bold")
   )
 
+
+
+# Ensure Model is a factor
+all_predictions_binary <- all_predictions |> 
+  filter(str_detect(Model, "Binary")) |> 
+  mutate(Model = factor(Model)) |> 
+  mutate(sex_category = group) |> 
+  mutate(height_inches = x)
+
+
+
+
+# Plot all models together
+ggplot(all_predictions_binary, aes(x = height_inches, y = predicted, color = sex_category)) +
+  geom_line(size = 1) +
+  facet_wrap(~ Model) +
+  labs(
+    title = "Predicted VT per kg IBW by Height and Sex Category",
+    x = "Height (inches)",
+    y = "Predicted VT per kg IBW",
+    color = "Sex Category"
+  ) +
+    scale_x_continuous(
+    limits = c(min_height, max_height),
+    breaks = height_breaks,
+    minor_breaks = NULL  # Remove minor grid lines if desired
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    plot.title = element_text(size = 14, face = "bold"),
+    strip.text = element_text(size = 12, face = "bold")
+  )
 
 
 

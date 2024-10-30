@@ -464,7 +464,6 @@ all_predictions <- model_preds_sex_category_height_ltvv |>
     filter(Model != "Model 5: htvv ~ Sex Category * rcs(Height) ~ HTVV (Binary)") 
 
 
-
 min_height <- round(min(all_predictions$height_inches, na.rm = TRUE))
 max_height <- round(max(all_predictions$height_inches, na.rm = TRUE))
 
