@@ -19,6 +19,16 @@ editor_options:
 ---
 
 # Setup
+## Run r script to get functions and libraries
+
+```{r}
+
+## Loading in the beginning stuff
+if(!exists("site_name")) {
+  source("code/00_renv_restore.R")
+}
+ 
+```
 
 ## In Main Script... Run all above `IMPORT`
 
@@ -77,7 +87,7 @@ hospital_table1_summary <- hospital_table1_summary |>
 ## Table 1
 
 ```{r}
-hospital_table1_summary |> kable()
+hospital_table1_summary |> kable() 
 ```
 
 ## Mode Graph
@@ -175,15 +185,18 @@ ltvv_variation <- ltvv_variation_table |>
   ) 
   
 
+
 icu_hosp_ranks_8cc <- ltvv_variation |> 
   group_by(hospital_id) |> 
   mutate(count_hosp = n()) |> 
   group_by(hospital_id, vt_bin, count_hosp) |> 
   summarise(count_bin = n()) |> 
   ungroup() |>
-  filter(vt_bin %in% c("8-9 cc/kg","9-10 cc/kg", "10-11 cc/kg", "11-12 cc/kg", ">= 12 cc/kg")) |> 
+  mutate(htvv = fcase(
+    vt_bin %in% c("8-9 cc/kg","9-10 cc/kg", "10-11 cc/kg", "11-12 cc/kg", ">= 12 cc/kg"), 1,
+    default = 0)) |> 
   group_by(hospital_id) |> 
-  mutate(pct_over_8 = sum(count_bin) / count_hosp) |> 
+  mutate(pct_over_8 = sum(htvv*count_bin) / count_hosp) |> 
   dplyr::select(hospital_id, pct_over_8) |> 
   distinct() |>
   arrange(pct_over_8) |>  
@@ -222,13 +235,16 @@ icu_hosp_ranks_8cc_female <- ltvv_female |>
   group_by(hospital_id, vt_bin, count_hosp) |> 
   summarise(count_bin = n()) |> 
   ungroup() |>
-  filter(vt_bin %in% c("8-9 cc/kg","9-10 cc/kg", "10-11 cc/kg", "11-12 cc/kg", ">= 12 cc/kg")) |> 
+ mutate(htvv = fcase(
+    vt_bin %in% c("8-9 cc/kg","9-10 cc/kg", "10-11 cc/kg", "11-12 cc/kg", ">= 12 cc/kg"), 1,
+    default = 0)) |> 
   group_by(hospital_id) |> 
-  mutate(pct_over_8 = sum(count_bin) / count_hosp) |> 
+  mutate(pct_over_8 = sum(htvv*count_bin) / count_hosp) |> 
   dplyr::select(hospital_id, pct_over_8) |> 
   distinct() |>
   arrange(pct_over_8) |>  
   pull(hospital_id)
+
 
 
 ###### Main Figure how Male vs Female by Category
@@ -540,6 +556,46 @@ height_estimates <- height_df %>% select(Estimate, LowerCI, UpperCI)
 height_x_limits <- range(c(height_estimates$Estimate, height_estimates$LowerCI, height_estimates$UpperCI))
 
 plot_height <- plot_height + xlim(height_x_limits)
+
+
+# Create height quantiles
+height_breaks <- c(0, 60, 63, 66, 69, 72, 100)  # Corresponds to < 5 feet, 5-5’3”, 5’3”-5’6”, ..., >6’3”
+height_labels <- c("< 5 feet", "5-5’3”", "5’3”-5’6”", "5’6”-5’9”", "5’9”-6’0”", "> 6’3”")
+
+all_predictions <- model_preds_sex_category_height_ltvv |> 
+  mutate(Model = factor(Model)) |> 
+  mutate(sex_category = group) |> 
+  mutate(height_inches = x)
+
+
+
+min_height <- round(min(all_predictions$height_inches, na.rm = TRUE))
+max_height <- round(max(all_predictions$height_inches, na.rm = TRUE))
+
+
+# Plot all models together
+ggplot(all_predictions, aes(x = height_inches, y = predicted, color = sex_category)) +
+  geom_line(size = 1) +
+  facet_wrap(~ Model) +
+  labs(
+    title = "Predicted VT per kg IBW by Height and Sex Category",
+    x = "Height (inches)",
+    y = "Predicted VT per kg IBW",
+    color = "Sex Category"
+  ) +
+    scale_x_continuous(
+    limits = c(min_height, max_height),
+    breaks = height_breaks,
+    minor_breaks = NULL  # Remove minor grid lines if desired
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    plot.title = element_text(size = 14, face = "bold"),
+    strip.text = element_text(size = 12, face = "bold")
+  )
+
+
 
 
 ```

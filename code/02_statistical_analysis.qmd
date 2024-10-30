@@ -94,12 +94,6 @@ load_data_frames(data_frames_to_load)
 ## SBT
 ```{r}
 
-if(!exists("df_hourly_resp_support")){
-  load("output/intermediate/most_recent_save_hourly.Rdata")
-  df_hourly_resp_support <- read_parquet(paste0(
-    "output/intermediate/df_hourly_resp_support_", most_recent_save_hourly,".parquet"))
-}
-
 
 
 sbt <- df_hourly_resp_support |> 
@@ -1797,6 +1791,7 @@ df_laps2_scores <- df_laps_calc |>
 
   
 
+
 ```
 
 ## PF Ratio
@@ -3098,7 +3093,7 @@ write.csv(results_sex_interaction_height_ltvv, paste0("output/final/model_coefs_
 
 ```{r}
 ##########################
-### Height Interaction ##
+### Height Interaction RCS ##
 #########################
 if (hosp_id_count == 1) {
   # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
@@ -3161,6 +3156,76 @@ write.csv(results_sex_interaction_height_ltvv_rcs, paste0("output/final/model_co
 ```
 
 
+## New one 
+```{r}
+##########################
+### BINARY Height Interaction RCS ##
+#########################
+if (hosp_id_count == 1) {
+  # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
+  mixed_model_sex_interaction_height_ltvv_rcs_bin <- glmer(
+    htvv ~
+      sex_category * rcs(height_inches) +
+      age_at_admission +
+      laps2 +
+      pf_ratio +
+      ph +          # Include ph in the model
+      pco2 +        # Include pco2 in the model
+      (1 | patient_id),
+    data = htvv_analysis,
+    family = binomial(link = "logit")
+  )
+}
+
+
+if (hosp_id_count > 1) {
+  # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
+  mixed_model_sex_interaction_height_ltvv_rcs_bin <- glmer(
+    htvv ~
+      sex_category * rcs(height_inches) +
+      age_at_admission +
+      laps2 +
+      # race_category +
+      pf_ratio +
+      ph +          # Include ph in the model
+      pco2 +        # Include pco2 in the model
+      hospital_id +
+      (1 | patient_id),
+    data = htvv_analysis,
+    family = binomial(link = "logit")
+  )
+}
+
+# Tidy the mixed model results
+model_results <- tidy(mixed_model_sex_interaction_height_ltvv_rcs_bin, effects = "fixed", conf.int = TRUE)
+print(model_results)
+
+# Select relevant columns and rename them
+results_sex_interaction_height_ltvv_rcs_bin <- model_results %>%
+  dplyr::select(
+    Variable = term, Estimate = estimate, StdError = std.error, 
+    LowerCI = conf.low, UpperCI = conf.high, 
+    # DegreesFreedom = df, 
+    Statistic = statistic, PValue = p.value
+  ) %>%
+  # Add StudyID and Model columns
+  mutate(
+    StudyID = "sex_interaction_height_ltvv_rcs_bin",  
+    Model = "MixedEffectsModel",
+    Site = site_name
+  ) %>%
+  # Rearrange columns
+  dplyr::select(
+    StudyID, Model, Site, Variable, Estimate, StdError, 
+    LowerCI, UpperCI, 
+    # DegreesFreedom, 
+    Statistic, PValue
+  )
+
+write.csv(results_sex_interaction_height_ltvv_rcs_bin, paste0("output/final/model_coefs_sex_interaction_height_RCS_ltvv__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
+```
+
+
 ## looking at the data
 ```{r}
 
@@ -3205,7 +3270,7 @@ max_height <- round(max(htvv_analysis$height_inches, na.rm = TRUE))
 
 # Generate predictions using ggeffects
 predictions_model11 <- ggpredict(mixed_model_sex_category_ltvv, terms = c("sex_category"))
-predictions_model11$Model <- "Model 1: Sex Category + LTVV" 
+predictions_model11$Model <- "Model 1: Sex Category ~ Vt" 
 # changing things so we can row bind... this model doesn't have height 
 predictions_model1 <- predictions_model11 |> 
   mutate(group = fcase(x == "female", "female", default = "male")) |> 
@@ -3226,13 +3291,16 @@ predictions_model1_expanded <- predictions_model1 %>%
 
 
 predictions_model2 <- ggpredict(mixed_model_sex_category_height_ltvv, terms = c("height_inches [all]", "sex_category"))
-predictions_model2$Model <- "Model 2: Sex Category + Height + LTVV"
+predictions_model2$Model <- "Model 2: Sex Category + Height ~ Vt"
 
 predictions_model3 <- ggpredict(mixed_model_sex_interaction_height_ltvv, terms = c("height_inches [all]", "sex_category"))
-predictions_model3$Model <- "Model 3: Sex Category * Height + LTVV"
+predictions_model3$Model <- "Model 3: Sex Category * Height ~ Vt"
 
 predictions_model4 <- ggpredict(mixed_model_sex_interaction_height_ltvv_rcs, terms = c("height_inches [all]", "sex_category"))
-predictions_model4$Model <- "Model 4: Sex Category * rcs(Height) + LTVV"
+predictions_model4$Model <- "Model 4: Sex Category * rcs(Height) ~ Vt"
+
+predictions_model5 <- ggpredict(mixed_model_sex_interaction_height_ltvv_rcs_bin, terms = c("height_inches [all]", "sex_category"))
+predictions_model5$Model <- "Model 5: htvv ~ Sex Category * rcs(Height) ~ HTVV (Binary)"
 
 
 # Combine predictions
