@@ -3242,7 +3242,9 @@ all_predictions <- bind_rows(
   predictions_model2,
   predictions_model3,
   predictions_model4
-) |> as.data.frame()
+) |> as.data.frame() |> 
+    mutate(health_system = site_name) 
+
 
 write.csv(all_predictions, paste0("output/final/model_preds_sex_category_height_ltvv__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
 
