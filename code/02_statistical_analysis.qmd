@@ -1169,11 +1169,18 @@ for (var in variables) {
 # Daily PF, SF, LAPS2 regression Mort / VFDs
 
 ```{r}
+if ("mean_airway_pressure_obs" %in% names(df_resp_support_1)){
+df_oxygenation_index_analysis_prep_temp <- df_oxygenation_index_analysis_prep1 |> 
+  left_join(df_oxygenation_index |> dplyr::select(clif_hospitalizations_joined_id, recorded_date, recorded_hour, oxygenation_index) |> distinct())
+} else {
+  
+df_oxygenation_index_analysis_prep_temp <- df_oxygenation_index_analysis_prep1
 
+}
 
 
 ## prep1 is before we lose all the data after the first vent episode
-intubation_data <- df_oxygenation_index_analysis_prep1 |> 
+intubation_data <- df_oxygenation_index_analysis_prep_temp |> 
     dplyr::select(-sex_category) |> 
   
   # get rid of those with no tidal volumes ever
