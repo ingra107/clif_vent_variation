@@ -463,18 +463,25 @@ ggsave("output/final/variables_by_site.png", plot = plot2, width = 10, height = 
 ## Daily Mortality Models
 
 ```{r}
+# Get all objects in the environment that start with "model_coefs_sex"
+model_objects <- mget(ls(pattern = "^model_coefs_daily"))
 
-# Define the directory containing the CSV files
-data_dir <- "aggregated_data"
+# Combine all objects into one dataset
+combined_model_coefs_daily <- bind_rows(model_objects, .id = "source")
 
-# List all CSV files that match the pattern 'model_coefficients__*.csv'
-files <- list.files(path = data_dir, pattern = "^model_coefficients_daily__.*\\.csv$", full.names = TRUE)
+# View the combined dataset
+combined_model_coefs_daily
 
-# Read all CSV files and combine them into a single data frame
-model_coefficients_list <- lapply(files, read_csv)
+# Get all objects in the environment that start with "model_coefs_sex"
+model_objects <- mget(ls(pattern = "^model_coefs_vfds"))
 
-# Combine all data frames into one
-model_coefficients <- bind_rows(model_coefficients_list)
+# Combine all objects into one dataset
+combined_model_coefs_vfds <- bind_rows(model_objects, .id = "source")
+
+# View the combined dataset
+combined_model_coefs_vfds
+
+
 
 # Ensure that 'term', 'variable', and 'site' are factors for plotting purposes
 model_coefficients <- model_coefficients %>%

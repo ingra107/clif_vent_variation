@@ -1334,7 +1334,8 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   dependent <- "mortality_enc"  # You can change this to 'VFDs' if modeling ventilator-free days
   
   explanatory <- c(worst_24hr_name,
-                   delta_var_name,
+                   var_daily_name,
+                   # delta_var_name,
                    "age_at_admission",
                    "sex_category",
                    # "race_category",
@@ -1347,7 +1348,7 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   
   if (interaction_term) {
     # Add interaction term between worst_24hr and delta_var
-    explanatory <- c(paste0(worst_24hr_name, "*", delta_var_name), explanatory[!(explanatory %in% c(worst_24hr_name, delta_var_name))])
+    explanatory <- c(paste0(worst_24hr_name, var_daily_name,"*", delta_var_name), explanatory[!(explanatory %in% c(worst_24hr_name, delta_var_name))])
   }
   
   # --- Step 7: Fit the Mixed-Effects Logistic Regression Model ---
@@ -1367,52 +1368,58 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   # --- Step 8: Generate and Save Regression Table ---
   
   message("starting the table for Mortality Model")
+# UNCOMMENT Below IF YOU WANT PRETTY TABLES
+#
   # Generate a regression table using tbl_regression
-  tbl <- model_data |> 
-    with(fit) %>%
-    tbl_regression(exponentiate = TRUE) %>%
-    bold_labels() %>%
-    italicize_levels() %>%
-    bold_p() %>%
-    as_gt() %>%
-    opt_vertical_padding(scale = 0.5) %>%
-    opt_row_striping()
+  # tbl <- model_data |> 
+  #   with(fit) %>%
+  #   tbl_regression(exponentiate = TRUE) %>%
+  #   bold_labels() %>%
+  #   italicize_levels() %>%
+  #   bold_p() %>%
+  #   as_gt() %>%
+  #   opt_vertical_padding(scale = 0.5) %>%
+  #   opt_row_striping()
+  # 
+  # print(tbl)
+  # 
+  # # Save the table to a file
+  # suffix <- ifelse(interaction_term, "interaction", "no_interaction")
+  # table_filename <- paste0("output/intermediate/finalfit__", var_name, "_", suffix, "_table_", Sys.Date(), ".html")
+  # gtsave(tbl, filename = table_filename)
+  # message("just saved mortality gt table")
+
   
-  print(tbl)
-  
-  # Save the table to a file
-  suffix <- ifelse(interaction_term, "interaction", "no_interaction")
-  table_filename <- paste0("output/intermediate/finalfit__", var_name, "_", suffix, "_table_", Sys.Date(), ".html")
-  gtsave(tbl, filename = table_filename)
-  message("just saved mortality gt table")
+
   # --- Step 9: Plot and Save Odds Ratio Plot ---
   
   # Extract fixed effects coefficients
   tidy_fit <- broom.mixed::tidy(fit, conf.int = TRUE, exponentiate = TRUE)
   
   # Exclude the intercept
-  plot_data <- tidy_fit %>%
-    filter(term != "(Intercept)") %>%
-    mutate(term = factor(term, levels = rev(unique(term)))) %>%
-    mutate(term_label = recode(term,
-      !!worst_24hr_name := paste(var_name, "First 24hr"),
-      !!delta_var_name := paste("Delta", var_name),
-      "htvv_daily_percent" = "Daily % HTVV",
-      "age_at_admission" = "Age at Admission",
-      "sex_categoryFemale" = "Sex: Female",
-      # "race_category" = "Race Category",
-      "hospital_id" = "Hospital ID"
-    ))
-  
-  # Plot the odds ratio plot
-  or_plot <- model_data |> 
-    or_plot(dependent, c(explanatory_lr), glmfit = fit, 
-            dependent_label = paste("Outcome: Mortality", var_name)) 
-  
-  
-  plot_filename <- paste0("output/intermediate/forest_plot_finalfit_daily__", var_name, "_", suffix, ".png")
-  ggsave(plot_filename, plot = or_plot)
-  message("just saved OR plot for mortality")
+  # plot_data <- tidy_fit %>%
+  #   filter(term != "(Intercept)") %>%
+  #   mutate(term = factor(term, levels = rev(unique(term)))) %>%
+  #   mutate(term_label = recode(term,
+  #     !!worst_24hr_name := paste(var_name, "First 24hr"),
+  #     !!var_daily_name := paste(var_name, "Daily"),
+  #     !!delta_var_name := paste("Delta", var_name),
+  #     "htvv_daily_percent" = "Daily % HTVV",
+  #     "age_at_admission" = "Age at Admission",
+  #     "sex_categoryFemale" = "Sex: Female",
+  #     # "race_category" = "Race Category",
+  #     "hospital_id" = "Hospital ID"
+  #   ))
+  # 
+  # # Plot the odds ratio plot
+  # or_plot <- model_data |> 
+  #   or_plot(dependent, c(explanatory_lr), glmfit = fit, 
+  #           dependent_label = paste("Outcome: Mortality", var_name)) 
+  # 
+  # 
+  # plot_filename <- paste0("output/intermediate/forest_plot_finalfit_daily__", var_name, "_", suffix, ".png")
+  # ggsave(plot_filename, plot = or_plot)
+  # message("just saved OR plot for mortality")
   # --- Step 10: Extract Coefficients and Save ---
 
   
@@ -1469,7 +1476,8 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   dependent <- "VFDs"
   
   explanatory <- c(worst_24hr_name,
-                   delta_var_name,
+                   var_daily_name,
+                   # delta_var_name,
                    "age_at_admission",
                    "sex_category",
                    # "race_category",
@@ -1481,7 +1489,7 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   
   if (interaction_term) {
     # Add interaction term between worst_24hr and delta_var
-    explanatory <- c(paste0(worst_24hr_name, "*", delta_var_name), explanatory[!(explanatory %in% c(worst_24hr_name, delta_var_name))])
+    explanatory <- c(paste0(worst_24hr_name, var_daily_name, "*", delta_var_name), explanatory[!(explanatory %in% c(worst_24hr_name, delta_var_name))])
   }
   
   # --- Step 7: Fit the Negative Binomial Regression Model ---
@@ -1503,46 +1511,49 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   message("starting vent free days table")
 
   # Generate a regression table using tbl_regression
-  tbl <- model_data |> 
-    with(fit) %>%
-    tbl_regression() %>%
-    bold_labels() %>%
-    italicize_levels() %>%
-    bold_p() %>%
-    as_gt() %>%
-    opt_vertical_padding(scale = 0.5) %>%
-    opt_row_striping()
+  # tbl <- model_data |> 
+  #   with(fit) %>%
+  #   tbl_regression() %>%
+  #   bold_labels() %>%
+  #   italicize_levels() %>%
+  #   bold_p() %>%
+  #   as_gt() %>%
+  #   opt_vertical_padding(scale = 0.5) %>%
+  #   opt_row_striping()
+  # 
+  # print(tbl)
+  # 
+  # # Save the table to a file
+  # suffix <- ifelse(interaction_term, "interaction", "no_interaction")
+  # table_filename <- paste0("output/intermediate/finalfit_vfds__", var_name, "_", suffix, "_table_", Sys.Date(), ".html")
+  # gtsave(tbl, filename = table_filename)
+  # message("just saved the vent free days table")
+   
+   
   
-  print(tbl)
-  
-  # Save the table to a file
-  suffix <- ifelse(interaction_term, "interaction", "no_interaction")
-  table_filename <- paste0("output/intermediate/finalfit_vfds__", var_name, "_", suffix, "_table_", Sys.Date(), ".html")
-  gtsave(tbl, filename = table_filename)
-  message("just saved the vent free days table")
   # --- Step 9: Plot and Save Coefficient Plot ---
   
   # Extract coefficients
-  tidy_fit <- tidy(fit, conf.int = TRUE, exponentiate = TRUE)
-  
-  # Exclude the intercept
-  plot_data <- tidy_fit %>%
-    filter(term != "(Intercept)") %>%
-    mutate(term = factor(term, levels = rev(unique(term))))
-  
-  # Create the coefficient plot
-  coef_plot <- ggplot(plot_data, aes(x = term, y = estimate, ymin = conf.low, ymax = conf.high)) +
-    geom_pointrange() +
-    coord_flip() +
-    labs(x = "Variables", y = "Incidence Rate Ratio", title = paste("Incidence Rate Ratios for VFDs -", var_name)) +
-    theme_bw()
-  
-  message("here is the plot for vent free days")
-  # Display and save the plot
-  print(coef_plot)
-  
-  plot_filename <- paste0("output/intermediate/coefs_plot_vfds__", var_name, "_", suffix, ".png")
-  ggsave(plot_filename, plot = coef_plot)
+  # tidy_fit <- tidy(fit, conf.int = TRUE, exponentiate = TRUE)
+  # 
+  # # Exclude the intercept
+  # plot_data <- tidy_fit %>%
+  #   filter(term != "(Intercept)") %>%
+  #   mutate(term = factor(term, levels = rev(unique(term))))
+  # 
+  # # Create the coefficient plot
+  # coef_plot <- ggplot(plot_data, aes(x = term, y = estimate, ymin = conf.low, ymax = conf.high)) +
+  #   geom_pointrange() +
+  #   coord_flip() +
+  #   labs(x = "Variables", y = "Incidence Rate Ratio", title = paste("Incidence Rate Ratios for VFDs -", var_name)) +
+  #   theme_bw()
+  # 
+  # message("here is the plot for vent free days")
+  # # Display and save the plot
+  # print(coef_plot)
+  # 
+  # plot_filename <- paste0("output/intermediate/coefs_plot_vfds__", var_name, "_", suffix, ".png")
+  # ggsave(plot_filename, plot = coef_plot)
   
   # --- Step 10: Extract Coefficients and Save ---
   
@@ -1569,9 +1580,9 @@ variables <- list(
   list(var_name = "laps2", agg_func = fmax)
 )
 
-# if ("mean_airway_pressure_obs" %in% names(df_resp_support_1)) {
-#   variables <- append(variables, list(list(var_name = "oxygenation_index", agg_func = fmin)))
-# }
+if ("mean_airway_pressure_obs" %in% names(df_resp_support_1)) {
+  variables <- append(variables, list(list(var_name = "oxygenation_index", agg_func = fmin)))
+}
 
 for (var_info in variables) {
   
