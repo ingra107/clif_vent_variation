@@ -57,19 +57,7 @@ base_names <- sapply(files, extract_base_name)
 files_df <- data.frame(file = files, base_name = base_names, stringsAsFactors = FALSE)
 file_groups <- split(files_df$file, files_df$base_name)
 
-# Step 4: Read and combine files for each group
-data_list <- lapply(file_groups, function(file_paths) {
-  data_frames <- lapply(file_paths, read.csv)
-  combined_data <- bind_rows(data_frames)
-  return(combined_data)
-})
-
-
-
-list2env(data_list, envir = .GlobalEnv)
-
-# getting health system into the Mix
-
+# Prepare hospital table summary with `system_hospital`
 hospital_table1_summary <- hospital_table1_summary |> 
   mutate(health_system = sub("Hospital\\s+(.*?)\\s+\\d+", "\\1", Hospital)) |> 
   group_by(health_system, Hospital) |> 
@@ -77,8 +65,66 @@ hospital_table1_summary <- hospital_table1_summary |>
   ungroup() |> 
   group_by(health_system) |> 
   mutate(Health_system_ID = cur_group_id()) |> 
-  ungroup()
+  ungroup() |> 
+  mutate(system_hospital = paste("System", Health_system_ID, "Hosp", Hospital_ID))
+
+system_hospital <- hospital_table1_summary |> 
+  select(hospital_id = Hospital, system_hospital) |> 
+  distinct() |> 
+  mutate(hospital_id = str_to_lower(hospital_id))
+
+# Function to replace "hospital_id" fields with `system_hospital`
+replace_hospital_id <- function(df) {
+  # Identify columns that start with "hospital_id"
+  hospital_id_cols <- grep("^hospital_id", names(df), value = TRUE)
   
+  for (col in hospital_id_cols) {
+    # Lowercase the hospital_id values in df for consistent joins
+    df[[col]] <- str_to_lower(df[[col]])
+    # Join to get `system_hospital` by original hospital_id values
+    df <- df |> 
+      left_join(system_hospital, by = setNames("hospital_id", col)) |> 
+      # Replace original column with `system_hospital`
+      mutate(!!col := system_hospital) |> 
+      select(-system_hospital)
+  }
+  return(df)
+}
+
+# Step 4: Read, combine, and replace hospital_id in files for each group
+data_list <- lapply(file_groups, function(file_paths) {
+  data_frames <- lapply(file_paths, function(file_path) {
+    df <- read.csv(file_path)
+    # Apply the replace function to each dataframe
+    df <- replace_hospital_id(df)
+    return(df)
+  })
+  combined_data <- bind_rows(data_frames)
+  return(combined_data)
+})
+
+# Step 5: Load each combined data into the global environment
+list2env(data_list, envir = .GlobalEnv)
+# 
+# 
+# # getting health system into the Mix
+# 
+# hospital_table1_summary <- hospital_table1_summary |> 
+#   mutate(health_system = sub("Hospital\\s+(.*?)\\s+\\d+", "\\1", Hospital)) |> 
+#   group_by(health_system, Hospital) |> 
+#   mutate(Hospital_ID = cur_group_id()) |> 
+#   ungroup() |> 
+#   group_by(health_system) |> 
+#   mutate(Health_system_ID = cur_group_id()) |> 
+#   ungroup() |> 
+#   mutate(system_hospital = paste("System", Health_system_ID, "Hosp", Hospital_ID))
+# 
+# 
+# system_hospital <- hospital_table1_summary |> 
+#   select(hospital_id = Hospital,
+#          system_hospital) |> distinct() |> 
+#   mutate(hospital_id = str_to_lower(hospital_id))
+#   
 
 ```
 
@@ -96,7 +142,9 @@ hospital_table1_summary |> kable()
 
 # already rolled up... no need to change
 mode_hospital_summary_table <- mode_hospital_summary_table |> 
-
+  # mutate(hospital_id = str_to_lower(hospital_id)) |> 
+  # left_join(system_hospital) |> 
+  # mutate(hospital_id = system_hospital) |>
     # Normalizing counts AGAIN with all hospitals now in the data
   mutate(normalized_count = count / fmax(count, na.rm = TRUE),
          # need to have NA in the data given its in the universal aesthetic
@@ -108,6 +156,9 @@ mode_hosp_order <- mode_hospital_summary_table |> select(hospital_id) |> pull()
 
 # uncount
 mode_hourly_resp_support <- mode_hourly_resp_support_table |> 
+  # mutate(hospital_id = str_to_lower(hospital_id_graph)) |> 
+  # left_join(system_hospital) |> 
+  # mutate(hospital_id_graph = system_hospital) |> 
   mutate(hospital_id_graph = factor(hospital_id_graph, levels = mode_hosp_order)) |> 
     mutate(mode_category = fcase(
               mode_category == "assist control-volume control",      "assist control-volume control", 
@@ -129,7 +180,7 @@ mode_hourly_resp_support <- mode_hourly_resp_support_table |>
     "Simv",
     "Other", ordered = TRUE))) |> 
   uncount(n) |> 
-  arrange(mode_category)
+  arrange(mode_category) 
 
 
 
@@ -175,6 +226,11 @@ plot_mode_hourly_resp_support
 ```{r}
 # This is the first 24 hours ventilation
 ltvv_variation <- ltvv_variation_table |> 
+  
+  # mutate(hospital_id = str_to_lower(hospital_id)) |> 
+  # left_join(system_hospital) |> 
+  # mutate(hospital_id = system_hospital) |>
+  
   uncount(n) |> 
     mutate(
     vt_bin = factor(vt_bin, levels = rev(c("< 4 cc/kg", "4-5 cc/kg",
@@ -225,6 +281,11 @@ ltvv_variation |>
 ```{r}
 
 ltvv_female <- ltvv_female_table |> 
+  
+  # mutate(hospital_id = str_to_lower(hospital_id)) |> 
+  # left_join(system_hospital) |> 
+  # mutate(hospital_id = system_hospital) |>
+  # 
   uncount(n) 
 
 
@@ -449,6 +510,41 @@ ggplot(model_coefficients, aes(x = term, y = estimate, ymin = conf.low, ymax = c
 ggsave("output/final/variables_across_sites.png", width = 10, height = 8, dpi = 300)
 ```
 
+## Sex_category point estimates
+
+```{r}
+# Get all objects in the environment that start with "model_coefs_sex"
+model_objects <- mget(ls(pattern = "^model_coefs_sex"))
+
+# Combine all objects into one dataset
+combined_model_coefs_sex <- bind_rows(model_objects, .id = "source")
+
+# View the combined dataset
+combined_model_coefs_sex
+
+
+library(ggplot2)
+
+# Assuming your combined dataset `combined_model_coefs_sex` has columns:
+# "StudyID" for different models, "Site" for different sites, "Estimate", "LowerCI", and "UpperCI".
+combined_model_coefs_sex |> 
+  filter(str_detect(StudyID, "bin")) |> 
+  filter(Variable == "sex_categorymale") |> 
+ggplot(aes(x = Estimate, y = Site, color = StudyID)) +
+  geom_point(position = position_dodge(width = 0.8), size = 3) +  # Plot the point estimates
+  geom_errorbarh(aes(xmin = LowerCI, xmax = UpperCI), 
+                 position = position_dodge(width = 0.8), height = 0.3) +  # Add horizontal error bars
+  labs(x = "Estimate", y = "Site", color = "Model (StudyID)") +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(size = 10),
+    legend.position = "top"
+  ) +
+  scale_fill_brewer(palette = "RdYlBu", direction = 1)
+  # scale_color_manual(values = c("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd"))  # Customize colors if needed
+
+
+```
 
 ## Sex_category / Height Models
 ```{r}
@@ -457,19 +553,23 @@ ggsave("output/final/variables_across_sites.png", width = 10, height = 8, dpi = 
 height_breaks <- c(0, 60, 63, 66, 69, 72, 100)  # Corresponds to < 5 feet, 5-5’3”, 5’3”-5’6”, ..., >6’3”
 height_labels <- c("< 5 feet", "5-5’3”", "5’3”-5’6”", "5’6”-5’9”", "5’9”-6’0”", "> 6’3”")
 
-all_predictions <- model_preds_sex_category_height_ltvv |> 
-  mutate(Model = factor(Model)) |> 
-  mutate(sex_category = group) |> 
-  mutate(height_inches = x) |> 
-    filter(Model != "Model 5: htvv ~ Sex Category * rcs(Height) ~ HTVV (Binary)") 
-
 
 min_height <- round(min(all_predictions$height_inches, na.rm = TRUE))
 max_height <- round(max(all_predictions$height_inches, na.rm = TRUE))
 
 
+# Ensure Model is a factor
+all_predictions_continuous <- model_preds_sex_category_height_ltvv |> 
+  filter(!str_detect(Model, "Binary")) |> 
+  mutate(Model = factor(Model)) |> 
+  mutate(sex_category = group) |> 
+  mutate(height_inches = x)
+
+
+
+
 # Plot all models together
-ggplot(all_predictions, aes(x = height_inches, y = predicted, color = sex_category)) +
+ggplot(all_predictions_continuous, aes(x = height_inches, y = predicted, color = sex_category)) +
   geom_line(size = 1) +
   facet_wrap(~ Model) +
   labs(
@@ -491,18 +591,21 @@ ggplot(all_predictions, aes(x = height_inches, y = predicted, color = sex_catego
   )
 
 
-#### JUST BINARY
+
 # Ensure Model is a factor
-predictions_model5 <- model_preds_sex_category_height_ltvv |> 
-  filter(Model == "Model 5: htvv ~ Sex Category * rcs(Height) ~ HTVV (Binary)") |> 
+all_predictions_binary <- model_preds_sex_category_height_ltvv |> 
+  filter(str_detect(Model, "Binary")) |> 
   mutate(Model = factor(Model)) |> 
   mutate(sex_category = group) |> 
   mutate(height_inches = x)
 
+
+
+
 # Plot all models together
-ggplot(predictions_model5, aes(x = height_inches, y = predicted, color = sex_category)) +
+ggplot(all_predictions_binary, aes(x = height_inches, y = predicted, color = sex_category)) +
   geom_line(size = 1) +
-  # facet_wrap(~ Model) +
+  facet_wrap(~ Model) +
   labs(
     title = "Predicted VT per kg IBW by Height and Sex Category",
     x = "Height (inches)",

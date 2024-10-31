@@ -1848,7 +1848,7 @@ results_sex_category_ltvv <- model_results %>%
   # Add StudyID and Model columns
   mutate(
     StudyID = "sex_category_ltvv",  
-    Model = "MixedEffectsModel",
+    Model = "Model 1: Sex Category ~ Vt",
     Site = site_name
   ) %>%
   # Rearrange columns
@@ -1913,7 +1913,7 @@ results_sex_category_height_ltvv <- model_results %>%
   # Add StudyID and Model columns
   mutate(
     StudyID = "sex_category_height_ltvv",  
-    Model = "MixedEffectsModel",
+    Model = "Model 2: Sex Category + Height ~ Vt",
     Site = site_name
   ) %>%
   # Rearrange columns
@@ -1981,7 +1981,7 @@ results_sex_interaction_height_ltvv <- model_results %>%
   # Add StudyID and Model columns
   mutate(
     StudyID = "sex_interaction_height_ltvv",  
-    Model = "MixedEffectsModel",
+    Model = "Model 3: Sex Category * Height ~ Vt",
     Site = site_name
   ) %>%
   # Rearrange columns
@@ -2047,7 +2047,7 @@ results_sex_interaction_height_ltvv_rcs <- model_results %>%
   # Add StudyID and Model columns
   mutate(
     StudyID = "sex_interaction_height_ltvv_rcs",  
-    Model = "MixedEffectsModel",
+    Model = "Model 4: Sex Category * rcs(Height) ~ Vt",
     Site = site_name
   ) %>%
   # Rearrange columns
@@ -2118,7 +2118,7 @@ results_sex_category_bin <- model_results %>%
   # Add StudyID and Model columns
   mutate(
     StudyID = "sex_category_bin",  
-    Model = "MixedEffectsModel",
+    Model = "Model 5: Sex Category ~ HTVV (Binary)",
     Site = site_name
   ) %>%
   # Rearrange columns
@@ -2186,7 +2186,7 @@ results_sex_category_height_bin <- model_results %>%
   # Add StudyID and Model columns
   mutate(
     StudyID = "sex_category_height_bin",  
-    Model = "MixedEffectsModel",
+    Model = "Model 6: Sex Category + Height ~ HTVV (Binary)",
     Site = site_name
   ) %>%
   # Rearrange columns
@@ -2253,7 +2253,7 @@ results_sex_interaction_height_bin <- model_results %>%
   # Add StudyID and Model columns
   mutate(
     StudyID = "sex_interaction_height_bin",  
-    Model = "MixedEffectsModel",
+    Model = "Model 7: Sex Category * Height ~ HTVV (Binary)",
     Site = site_name
   ) %>%
   # Rearrange columns
@@ -2322,7 +2322,7 @@ results_sex_interaction_height_rcs_bin <- model_results %>%
   # Add StudyID and Model columns
   mutate(
     StudyID = "sex_interaction_height_rcs_bin",  
-    Model = "MixedEffectsModel",
+    Model = "Model 8: htvv ~ Sex Category * rcs(Height) ~ HTVV (Binary)",
     Site = site_name
   ) %>%
   # Rearrange columns
