@@ -1140,7 +1140,8 @@ run_analysis_for_variable_finalfit <- function(var_name, interaction_term = FALS
     mutate(variable = var_name,
            site = site_name) 
   
-    write.csv(tidy_fit, file = paste0("output/intermediate/model_coefs__", var_name, "_", suffix, "__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
+  suffix <- ifelse(interaction_term, "interaction", "no_interaction")
+  write.csv(tidy_fit, file = paste0("output/intermediate/model_coefs__", var_name, "_", suffix, "__", site_name, "_", Sys.Date(), ".csv"), row.names = FALSE)
 
   
   return(fit)
