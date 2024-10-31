@@ -1489,6 +1489,7 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
                    # delta_var_name,
                    "age_at_admission",
                    "sex_category",
+                   "day",
                    # "race_category",
                    "htvv_daily_percent")
   
