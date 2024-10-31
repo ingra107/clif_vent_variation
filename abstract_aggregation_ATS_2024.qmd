@@ -530,7 +530,7 @@ library(ggplot2)
 combined_model_coefs_sex |> 
   filter(str_detect(StudyID, "bin")) |> 
   filter(Variable == "sex_categorymale") |> 
-ggplot(aes(x = Estimate, y = Site, color = StudyID)) +
+ggplot(aes(x = Estimate, y = Site, color = Model)) +
   geom_point(position = position_dodge(width = 0.8), size = 3) +  # Plot the point estimates
   geom_errorbarh(aes(xmin = LowerCI, xmax = UpperCI), 
                  position = position_dodge(width = 0.8), height = 0.3) +  # Add horizontal error bars

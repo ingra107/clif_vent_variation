@@ -1848,7 +1848,7 @@ results_sex_category_ltvv <- model_results %>%
   # Add StudyID and Model columns
   mutate(
     StudyID = "sex_category_ltvv",  
-    Model = "Model 1: Sex Category ~ Vt",
+    Model = "Male ~ Vt",
     Site = site_name
   ) %>%
   # Rearrange columns
@@ -1913,7 +1913,7 @@ results_sex_category_height_ltvv <- model_results %>%
   # Add StudyID and Model columns
   mutate(
     StudyID = "sex_category_height_ltvv",  
-    Model = "Model 2: Sex Category + Height ~ Vt",
+    Model = "Male + Height ~ Vt",
     Site = site_name
   ) %>%
   # Rearrange columns
@@ -1981,7 +1981,7 @@ results_sex_interaction_height_ltvv <- model_results %>%
   # Add StudyID and Model columns
   mutate(
     StudyID = "sex_interaction_height_ltvv",  
-    Model = "Model 3: Sex Category * Height ~ Vt",
+    Model = "Male * Height ~ Vt",
     Site = site_name
   ) %>%
   # Rearrange columns
@@ -2047,7 +2047,7 @@ results_sex_interaction_height_ltvv_rcs <- model_results %>%
   # Add StudyID and Model columns
   mutate(
     StudyID = "sex_interaction_height_ltvv_rcs",  
-    Model = "Model 4: Sex Category * rcs(Height) ~ Vt",
+    Model = "Male * rcs(Height) ~ Vt",
     Site = site_name
   ) %>%
   # Rearrange columns
@@ -2118,7 +2118,7 @@ results_sex_category_bin <- model_results %>%
   # Add StudyID and Model columns
   mutate(
     StudyID = "sex_category_bin",  
-    Model = "Model 5: Sex Category ~ HTVV (Binary)",
+    Model = "Male ~ HTVV (Binary)",
     Site = site_name
   ) %>%
   # Rearrange columns
@@ -2186,7 +2186,7 @@ results_sex_category_height_bin <- model_results %>%
   # Add StudyID and Model columns
   mutate(
     StudyID = "sex_category_height_bin",  
-    Model = "Model 6: Sex Category + Height ~ HTVV (Binary)",
+    Model = "Male + Height ~ HTVV (Binary)",
     Site = site_name
   ) %>%
   # Rearrange columns
@@ -2253,7 +2253,7 @@ results_sex_interaction_height_bin <- model_results %>%
   # Add StudyID and Model columns
   mutate(
     StudyID = "sex_interaction_height_bin",  
-    Model = "Model 7: Sex Category * Height ~ HTVV (Binary)",
+    Model = "Male * Height ~ HTVV (Binary)",
     Site = site_name
   ) %>%
   # Rearrange columns
@@ -2322,7 +2322,7 @@ results_sex_interaction_height_rcs_bin <- model_results %>%
   # Add StudyID and Model columns
   mutate(
     StudyID = "sex_interaction_height_rcs_bin",  
-    Model = "Model 8: htvv ~ Sex Category * rcs(Height) ~ HTVV (Binary)",
+    Model = "Male * rcs(Height) ~ HTVV (Binary)",
     Site = site_name
   ) %>%
   # Rearrange columns
@@ -2381,7 +2381,7 @@ max_height <- round(max(htvv_analysis$height_inches, na.rm = TRUE))
 
 # Generate predictions using ggeffects
 predictions_model11 <- ggpredict(mixed_model_sex_category_ltvv, terms = c("sex_category"))
-predictions_model11$Model <- "Model 1: Sex Category ~ Vt" 
+predictions_model11$Model <- "Male ~ Vt" 
 # changing things so we can row bind... this model doesn't have height 
 predictions_model1 <- predictions_model11 |> 
   mutate(group = fcase(x == "female", "female", default = "male")) |> 
@@ -2402,19 +2402,19 @@ predictions_model1_expanded <- predictions_model1 %>%
 
 
 predictions_model2 <- ggpredict(mixed_model_sex_category_height_ltvv, terms = c("height_inches [all]", "sex_category"))
-predictions_model2$Model <- "Model 2: Sex Category + Height ~ Vt"
+predictions_model2$Model <- "Male + Height ~ Vt"
 
 predictions_model3 <- ggpredict(mixed_model_sex_interaction_height_ltvv, terms = c("height_inches [all]", "sex_category"))
-predictions_model3$Model <- "Model 3: Sex Category * Height ~ Vt"
+predictions_model3$Model <- "Male * Height ~ Vt"
 
 predictions_model4 <- ggpredict(mixed_model_sex_interaction_height_ltvv_rcs, terms = c("height_inches [all]", "sex_category"))
-predictions_model4$Model <- "Model 4: Sex Category * rcs(Height) ~ Vt"
+predictions_model4$Model <- "Male * rcs(Height) ~ Vt"
 
 
 
 # Generate predictions using ggeffects
 predictions_model55 <- ggpredict(mixed_model_sex_category_bin, terms = c("sex_category"))
-predictions_model55$Model <- "Model 5: Sex Category ~ HTVV (Binary)" 
+predictions_model55$Model <- "Male ~ HTVV (Binary)" 
 # changing things so we can row bind... this model doesn't have height 
 predictions_model5 <- predictions_model55 |> 
   mutate(group = fcase(x == "female", "female", default = "male")) |> 
@@ -2434,13 +2434,13 @@ predictions_model5_expanded <- predictions_model5 %>%
 
 
 predictions_model6 <- ggpredict(mixed_model_sex_category_height_bin, terms = c("height_inches [all]", "sex_category"))
-predictions_model6$Model <- "Model 6: Sex Category + Height ~ HTVV (Binary)"
+predictions_model6$Model <- "Male + Height ~ HTVV (Binary)"
 
 predictions_model7 <- ggpredict(mixed_model_sex_interaction_height_bin, terms = c("height_inches [all]", "sex_category"))
-predictions_model7$Model <- "Model 7: Sex Category * Height ~ HTVV (Binary)"
+predictions_model7$Model <- "Male * Height ~ HTVV (Binary)"
 
 predictions_model8 <- ggpredict(mixed_model_sex_interaction_height_rcs_bin, terms = c("height_inches [all]", "sex_category"))
-predictions_model8$Model <- "Model 8: htvv ~ Sex Category * rcs(Height) ~ HTVV (Binary)"
+predictions_model8$Model <- "Male * rcs(Height) ~ HTVV (Binary)"
 
 
 # Combine predictions
