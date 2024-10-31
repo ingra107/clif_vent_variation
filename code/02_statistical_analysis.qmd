@@ -2003,7 +2003,7 @@ if (hosp_id_count == 1) {
   # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
   mixed_model_sex_interaction_height_ltvv_rcs <- lmer(
     vt_per_kg_ibw ~
-      sex_category * rcs(height_inches,  c(63, 66, 69, 72, 75)) +
+      sex_category * rcs(height_inches,  c(60, 63, 66, 69, 72)) +
       age_at_admission +
       laps2 +
       # race_category +
@@ -2020,7 +2020,7 @@ if (hosp_id_count > 1) {
   # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
   mixed_model_sex_interaction_height_ltvv_rcs <- lmer(
     vt_per_kg_ibw ~
-      sex_category * rcs(height_inches,  c(63, 66, 69, 72, 75)) +
+      sex_category * rcs(height_inches,  c(60, 63, 66, 69, 72)) +
       age_at_admission +
       laps2 +
       # race_category +
@@ -2278,7 +2278,7 @@ if (hosp_id_count == 1) {
   # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
   mixed_model_sex_interaction_height_rcs_bin <- glm(
     htvv ~
-      sex_category * rcs(height_inches, c(63, 66, 69, 72, 75)) +
+      sex_category * rcs(height_inches, c(60, 63, 66, 69, 72)) +
       age_at_admission +
       laps2 +
       pf_ratio +
@@ -2294,7 +2294,7 @@ if (hosp_id_count > 1) {
   # Fit the mixed-effects model with random intercepts for patients and hospitals, including pH and pCO2
   mixed_model_sex_interaction_height_rcs_bin <- glm(
     htvv ~
-      sex_category * rcs(height_inches, c(63, 66, 69, 72, 75)) +
+      sex_category * rcs(height_inches, c(60, 63, 66, 69, 72)) +
       age_at_admission +
       laps2 +
       # race_category +
