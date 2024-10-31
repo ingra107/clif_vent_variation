@@ -1103,32 +1103,32 @@ run_analysis_for_variable_finalfit <- function(var_name, interaction_term = FALS
   print(summary(fit))
   
   # Generate a regression table using tbl_regression
-  tbl <- model_data |> 
-    with(glm(formula = as.formula(form_lr), family = binomial(link = "logit"))) %>%
-    tbl_regression(exponentiate = TRUE) %>%
-    bold_labels() %>%
-    italicize_levels() %>%
-    bold_p() %>%
-    as_gt() %>%
-    opt_vertical_padding(scale = 0.5) %>%
-    opt_row_striping()
-  
-  # Print the table
-  print(tbl)
-  
-  # Save the table to a file (optional)
-  suffix <- ifelse(interaction_term, "interaction", "no_interaction")
-  gtsave(tbl, filename = paste0("output/intermediate/finalfit__", var_name, "_", suffix, "_table_", Sys.Date(), ".html"))
+  # tbl <- model_data |> 
+  #   with(glm(formula = as.formula(form_lr), family = binomial(link = "logit"))) %>%
+  #   tbl_regression(exponentiate = TRUE) %>%
+  #   bold_labels() %>%
+  #   italicize_levels() %>%
+  #   bold_p() %>%
+  #   as_gt() %>%
+  #   opt_vertical_padding(scale = 0.5) %>%
+  #   opt_row_striping()
+  # 
+  # # Print the table
+  # print(tbl)
+  # 
+  # # Save the table to a file (optional)
+  # suffix <- ifelse(interaction_term, "interaction", "no_interaction")
+  # gtsave(tbl, filename = paste0("output/intermediate/finalfit__", var_name, "_", suffix, "_table_", Sys.Date(), ".html"))
   
   # Plot the odds ratio plot
-  or_plot <- model_data |> 
-    or_plot(dependent, c(explanatory_lr), glmfit = fit, 
-            dependent_label = paste("Outcome: Mortality", var_name)) 
-  
-  # Display and save the plot
-  print(or_plot)
-  
-  ggsave(paste0("output/intermediate/forest_plot_finalfit__", var_name, "_", suffix, ".png"), plot = or_plot)
+  # or_plot <- model_data |> 
+  #   or_plot(dependent, c(explanatory_lr), glmfit = fit, 
+  #           dependent_label = paste("Outcome: Mortality", var_name)) 
+  # 
+  # # Display and save the plot
+  # print(or_plot)
+  # 
+  # ggsave(paste0("output/intermediate/forest_plot_finalfit__", var_name, "_", suffix, ".png"), plot = or_plot)
   
   # --- Extract Coefficients and Confidence Intervals ---
   
@@ -1430,6 +1430,7 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   print(tidy_fit)
   
   # Save the coefficients to a CSV file
+  suffix <- ifelse(interaction_term, "interaction", "no_interaction")
   coefficients_filename <- paste0("output/final/model_coefs_daily__", var_name, "__", suffix, "__", site_name, "_", Sys.Date(), ".csv")
   
   write.csv(tidy_fit, file = coefficients_filename, row.names = FALSE)
@@ -1534,8 +1535,8 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
   # --- Step 9: Plot and Save Coefficient Plot ---
   
   # Extract coefficients
-  # tidy_fit <- tidy(fit, conf.int = TRUE, exponentiate = TRUE)
-  # 
+  tidy_fit <- tidy(fit, conf.int = TRUE)
+  
   # # Exclude the intercept
   # plot_data <- tidy_fit %>%
   #   filter(term != "(Intercept)") %>%
@@ -1562,6 +1563,7 @@ run_daily_analysis_for_variable_finalfit <- function(var_name, agg_func, interac
            site = site_name)
   
   # Save the coefficients to a CSV file
+  suffix <- ifelse(interaction_term, "interaction", "no_interaction")
   coefficients_filename <- paste0("output/final/model_coefs_vfds__", var_name, "__", suffix, "__", site_name, "_", Sys.Date(), ".csv")
   write.csv(tidy_fit, file = coefficients_filename, row.names = FALSE)
   message("just saved the coefs for vent free days!")
