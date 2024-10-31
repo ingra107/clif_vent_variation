@@ -484,7 +484,7 @@ combined_model_coefs_vfds
 
 
 # Ensure that 'term', 'variable', and 'site' are factors for plotting purposes
-model_coefficients <- model_coefficients %>%
+model_coefficients <- combined_model_coefs_daily %>%
   mutate(
     term = as.factor(term),
     variable = as.factor(variable),
@@ -496,7 +496,7 @@ model_coefficients <- model_coefficients %>%
 ggplot(model_coefficients, aes(x = term, y = estimate, ymin = conf.low, ymax = conf.high, color = variable)) +
   geom_pointrange(position = position_dodge(width = 0.6)) +
   facet_wrap(~ site, scales = "free_y") +
-  scale_y_log10() +
+  # scale_y_log10() +
   coord_flip() +
   labs(
     title = "Comparison of Variables Across Sites",
