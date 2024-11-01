@@ -430,7 +430,7 @@ clif_respiratory_support <- import_df("clif_respiratory_support") |>
         peak_inspiratory_pressure_obs,
         starts_with("mean_airway_pressure"),  # in case ppl don't have this yet.. prevents from breaking
         # peep_obs, # not used and not in adult set 
-        minute_vent_obs,
+        starts_with("minute_vent_obs"),
         tracheostomy) |> 
   mutate(across(ends_with("_set"), as.double)) |> 
   mutate(across(ends_with("_obs"), as.double))
@@ -637,7 +637,9 @@ ni_tic()
 df_resp_support_1  <- clif_respiratory_support |> 
   dplyr::select(clif_hospitalizations_joined_id, hospitalization_id, recorded_dttm, device_category, device_name, mode_category, mode_name, 
          fio2_set, lpm_set, tidal_volume_set, peep_set,  pressure_support_set, resp_rate_set, tracheostomy, 
-         starts_with("tidal_volume_obs"), peak_inspiratory_pressure_obs, minute_vent_obs, plateau_pressure_obs, starts_with("mean_airway_pressure_obs") 
+         starts_with("tidal_volume_obs"), peak_inspiratory_pressure_obs, 
+         starts_with("minute_vent_obs"), 
+         plateau_pressure_obs, starts_with("mean_airway_pressure_obs") 
   )
 
 if ("mean_airway_pressure_obs" %in% names(df_resp_support_1)){
@@ -683,11 +685,11 @@ df_resp_support_1 <- df_resp_support_1 |>
     peak_inspiratory_pressure_obs = fcase(peak_inspiratory_pressure_obs > 60, NA_real_, rep_len(TRUE, length(peak_inspiratory_pressure_obs)), peak_inspiratory_pressure_obs),
     peak_inspiratory_pressure_obs = fcase(peak_inspiratory_pressure_obs <  0, NA_real_, rep_len(TRUE, length(peak_inspiratory_pressure_obs)), peak_inspiratory_pressure_obs),
     
-    # minute_vent_obs
-    minute_vent_obs = fcase(minute_vent_obs > 30, NA_real_, rep_len(TRUE, length(minute_vent_obs)), minute_vent_obs),
-    minute_vent_obs = fcase(minute_vent_obs <  0, NA_real_, rep_len(TRUE, length(minute_vent_obs)), minute_vent_obs),
+    # # minute_vent_obs
+    # minute_vent_obs = fcase(minute_vent_obs > 30, NA_real_, rep_len(TRUE, length(minute_vent_obs)), minute_vent_obs),
+    # minute_vent_obs = fcase(minute_vent_obs <  0, NA_real_, rep_len(TRUE, length(minute_vent_obs)), minute_vent_obs),
+    # 
 
-    
     ) |>
   
   # getting data and hour information
@@ -757,7 +759,7 @@ df_resp_support_1 <- df_resp_support_1 |>
   # doing this for BiPAP as well 
   mutate(device_category = fcase(is.na(device_category) & 
                                      lag(device_category == "nippv") & 
-                                     minute_vent_obs > 1 & 
+                                     # minute_vent_obs > 1 & 
                                      peak_inspiratory_pressure_obs > 1 & 
                                      pressure_support_set > 1, 
                                    "nippv", 
@@ -765,7 +767,7 @@ df_resp_support_1 <- df_resp_support_1 |>
   
   mutate(device_category = fcase(is.na(device_category) & 
                                      lead(device_category == "nippv") & 
-                                     minute_vent_obs > 1 & 
+                                     # minute_vent_obs > 1 & 
                                      peak_inspiratory_pressure_obs > 1 & 
                                      pressure_support_set > 1, 
                                    "nippv", 
@@ -999,7 +1001,8 @@ df_resp_support <- df_resp_support_1 |>
   # took trach out of this so we don't fill back up 3/2024
   fill(c(fio2_set, lpm_set, peep_set, tidal_volume_set, pressure_support_set, resp_rate_set, 
          # tidal_volume_obs, 
-         peak_inspiratory_pressure_obs,  minute_vent_obs, 
+         peak_inspiratory_pressure_obs,  
+         # minute_vent_obs, 
          hospital_id, location_name, location_category, in_dttm, out_dttm
   ), .direction = "downup"
   ) |>
@@ -1035,7 +1038,7 @@ df_resp_support <- df_resp_support_1 |>
     peak_inspiratory_pressure_obs,
     plateau_pressure_obs,
     # obs_resp_rate,
-    minute_vent_obs,
+    # minute_vent_obs,
     hospital_id,
     location_name,
     location_category,
@@ -1403,7 +1406,7 @@ df_hourly_resp_support2 <- df_hourly_resp_support1 |>
   peak_inspiratory_pressure_obs,
   plateau_pressure_obs,
   # obs_resp_rate,
-  minute_vent_obs,
+  # minute_vent_obs
   ) |>
   
   #~~ group by hour so that we can take the first time point to get our information

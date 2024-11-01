@@ -1058,29 +1058,25 @@ run_analysis_for_variable_finalfit <- function(var_name, interaction_term = FALS
     
   # Ensure model_data is a dataframe for finalfit
   model_data <- as.data.frame(model_data)
-  # 
-  # # Count the number of encounters per hospital_id and assign "Hospital 1", "Hospital 2", etc.
-  # hospital_order <- model_data %>%
-  #   count(hospital_id, name = "encounters") %>%
-  #   arrange(desc(encounters)) %>%
-  #   mutate(hospital_label = paste0("Hospital ", row_number()))
-  # 
-  # # Join the labeled hospitals back to your model_data
-  # model_data <- model_data %>%
-  #   left_join(hospital_order %>% dplyr::select(hospital_id, hospital_label), by = "hospital_id") |> 
-  #   mutate(hospital_id = hospital_label)
-  # 
-  
+
   
   # Prepare the finalfit input: dependent and explanatory variables
   dependent <- "mortality_enc"
   
-  explanatory <- c("worst_24hr", "delta_var", "age_at_admission", "sex_category", 
-                   "race_category")
+  explanatory <- c("worst_24hr", 
+                   # "delta_var", 
+                   "age_at_admission", 
+                   # "race_category",
+                   "sex_category"
+                   )
   
   if (hosp_id_count > 1) {
-    explanatory <- c("worst_24hr", "delta_var", "age_at_admission", "sex_category", 
-                     "race_category", "hospital_id")
+    explanatory <- c("worst_24hr", 
+                     "delta_var", 
+                     "age_at_admission", 
+                     "sex_category", 
+                     # "race_category", 
+                     "hospital_id")
   }
   
   
