@@ -1072,7 +1072,7 @@ run_analysis_for_variable_finalfit <- function(var_name, interaction_term = FALS
   
   if (hosp_id_count > 1) {
     explanatory <- c("worst_24hr", 
-                     "delta_var", 
+                     # "delta_var", 
                      "age_at_admission", 
                      "sex_category", 
                      # "race_category", 

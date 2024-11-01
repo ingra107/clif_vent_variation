@@ -219,6 +219,7 @@ cat("Results: Of the", total_patients, "critically ill adults, the mean age was"
 
 # Abstract Sex/Height LTVV
 
+[Google Doc](https://docs.google.com/document/d/1T1-nFrZV6F-FomMsiBHxZldc3dtiIenXkcg9V4koNSA/edit?usp=sharing)
 
 ## Sex_category / LTVV graph
 
@@ -484,22 +485,20 @@ all_predictions_binary_plot <- all_predictions_binary |>
 ```
 
 
-
+## Abstract Writing
 **Sex and Height-Based Variation in Ventilator Tidal Volume Settings**
 Nicholas E. Ingraham, Casey Eddington, Benjamin Schmid, Alex Ortiz, Gary Weissman, William Parker, Kaveri Chhikara
 
 
 
 
-## Introduction
-
+**Introduction**  
 Low tidal volume ventilation (LTVV) reduces mortality in mechanically ventilated patients with severe hypoxic respiratory failure.[@network2000brower]  LTVV also benefits populations not originally included in the landmark trail. [@SerpaNeto__2012__Associationbetweenuse] Despite this, adherence to delivering LTVV varies in clinical practice. [@Gao__2021__LungProtectiveVentilationOver]  In this study we sought to explore potential mechanisms underlying LTVV adherence, specifically patient sex and their height. 
 
-## Methods
+**Methods**  
+The Common Longitudinal Intensive Care Unit (CLIF) consortium is comprised of **`r total_health_systems`** US academic health systems that use a standardized data format to facilitate federated studies of critical illness. We identified all adult patients admitted to the ICU and required at least 24 hours of mechanical ventilation from **`r start_date`** to **`r end_date`** , excluding patients with tracheostomy within 72 hours of admission.
 
-Methods: The Common Longitudinal Intensive Care Unit (CLIF) consortium is comprised of **`r total_health_systems`** US academic health systems that use a standardized data format to facilitate federated studies of critical illness. We identified all adult patients admitted to the ICU and required at least 24 hours of mechanical ventilation from **`r start_date`** to **`r end_date`** , excluding patients with tracheostomy within 72 hours of admission.
-
-## Results
+**Results**  
 Of the **`r total_patients`** critically ill adults, the mean age was **`r round(mean_age, 1)`** years (standard deviation **`r round(sd_age, 1)`** years), and there were **`r format(total_females, scientific = FALSE)`** (**`r round(percent_females, 1)`%**) females, **`r total_black`** (**`r round(percent_black, 1)`%**) Black patients, and **`r total_hispanic`** (**`r round(percent_hispanic, 1)`%**) Hispanic patients across **`r total_health_systems`** healthcare systems and
 **`r total_hospitals`** hospitals. **Figure 1** shows the distribution of LTVV statified by patient sex. The mean rate of LTVV in females across all patients was **`r round(rate_htvv_female, 1)`% (`r round(conf_interval_female[1], 1)` - `r round(conf_interval_female[2], 1)`)** while the rate for males was **`r round(rate_htvv_male, 1)`% (`r round(conf_interval_male[1], 1)` - `r round(conf_interval_male[2], 1)`)**. When adjusting for height 
 
@@ -738,6 +737,11 @@ ltvv_variation_plot <- ltvv_variation |>
 ```
 
 ## Abstract Writing
+**Critical Care Respiratory Support Data Wrangling and Mode Variation**
+
+[Google Doc](https://docs.google.com/document/d/1kyPNfOT2v0zwF-xFmcmWp_nzY2vyxgGyFlGVR90R0iU/edit?usp=sharing)
+
+
 **Introduction**  
 Healthcare outcomes vary across institutions in critically ill patients. Practice variation is difficult to capture on a large scale without utilizing the electronic healthcare records. A specific obstacle includes dealing with raw ventilator data. We sought to develop systemic methodology to accurately capture the time course of mechanical ventilation for a patient. Furthermore, we aimed to make this process generalizable across healthcare systems by using the Common Longitudinal ICU Format (CLIF). In addition to developing syntax that outputs an hourly-patient-level dataframe with pertinent ventilator data, we used variation in mode ventilation as a use-case to explore differences in mode selection across U.S. health systems.
 
@@ -748,7 +752,7 @@ that use a standardized data format to facilitate federated studies of
 critical illness. We identified all adult patients admitted to the ICU and required at least 24 hours of mechanical ventilation from **`r start_date`** to **`r end_date`** , excluding patients with tracheostomy within 72 hours of admission.
 
 **Results**  
-Of the **`r total_patients`** critically ill adults, the mean age was **`r round(mean_age, 1)`** years (standard deviation **`r round(sd_age, 1)`** years), and there were **`r format(total_females, scientific = FALSE)`** (**`r round(percent_females, 1)`%**) females, **`r total_black`** (**`r round(percent_black, 1)`%**) Black patients, and **`r total_hispanic`** (**`r round(percent_hispanic, 1)`%**) Hispanic patients across **`r total_health_systems`** healthcare systems and **`r total_hospitals`** hospitals. Using device and mode flosheet names from the EHR that were linked to the CLIF common data elements, we executed the "CLIF Respiratory Support Waterfall" across all our sites. The algorithm leverages the most specific data from the EHR (oxygen devices) to identify transitions in the patients respiratory status. It then takes a stepwise approach by looking within the prior hierarchy to find other transitions (e.g. modes). This approach leads to a final respiratory support ID which is used to fill in missing data. The final dataframe includes an hourly level of patient information. The most common modes used across all health systems included volume control (**`r round(rate_vc, 1)`**), pressure control (**`r round(rate_pc, 1)`**), and pressure-regulated volume control (`r round(rate_prvc, 1)`). Hospitals varied on the use of different mode settings with the highest hospital rate of volume control was `r round(highest_vc$rate, 1)` and the lowest was `r round(lowest_vc$rate, 1)`. Less common forms of ventilation, such as SIMV, varied from **`r round(lowest_simv$rate, 1)`** to **`r round(highest_simv$rate, 1)`**.
+Of the **`r total_patients`** critically ill adults, the mean age was **`r round(mean_age, 1)`** years (standard deviation **`r round(sd_age, 1)`** years), and there were **`r format(total_females, scientific = FALSE)`** (**`r round(percent_females, 1)`%**) females, **`r total_black`** (**`r round(percent_black, 1)`%**) Black patients, and **`r total_hispanic`** (**`r round(percent_hispanic, 1)`%**) Hispanic patients across **`r total_health_systems`** healthcare systems and **`r total_hospitals`** hospitals. Using device and mode flosheet names from the EHR that were linked to the CLIF common data elements, we executed the "CLIF Respiratory Support Waterfall" across all our sites. The algorithm leverages the most specific data from the EHR (oxygen devices) to identify transitions in the patients respiratory status. It then takes a stepwise approach by looking within the prior hierarchy to find other transitions (e.g. modes). This approach leads to a final respiratory support ID which is used to fill in missing data. The final dataframe includes an hourly level of patient information. The most common modes used across all health systems included volume control (**`r round(rate_vc, 1)`**), pressure control (**`r round(rate_pc, 1)`**), and pressure-regulated volume control (**`r round(rate_prvc, 1)`**). Hospitals varied on the use of different mode settings with the highest hospital rate of volume control was **`r round(highest_vc$rate, 1)`** and the lowest was **`r round(lowest_vc$rate, 1)`**. Less common forms of ventilation, such as SIMV, varied from **`r round(lowest_simv$rate, 1)`** to **`r round(highest_simv$rate, 1)`**.
 
 **Conclusion**  
 Granular data from critically ill patients can be complex and rittled with missingness and erroneous data. By leveraging the CLIF platform, we developed a cross-institutional mechanism to extract and formulate hourly patient data that is critical to ICU research. The usefulness is demonstrated through our exploration of mode variation across **`r total_hospitals`** hospitals.
@@ -766,7 +770,7 @@ plot_mode_hourly_resp_support
 
 ## Daily Mortality Models
 
-**htvv_daily_percent** = $ (set~volume~hours > 8cc/ibw) / (ventilator~hours~that~day)$
+**htvv_daily_percent** = $(set~volume~hours > 8cc/ibw) / (ventilator~hours~that~day)$
 
 Testing: `laps2`, `pf_ratio`, `sf_ratio`, `oxygenation_index` (if
 available)
